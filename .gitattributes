@@ -1,0 +1,14 @@
+# Handle line endings automatically
+* text=auto
+
+# Force LF for shell scripts
+*.sh text eol=lf
+
+# Binaries — no line-ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
