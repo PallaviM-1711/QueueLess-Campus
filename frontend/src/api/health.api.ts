@@ -18,3 +18,4 @@ export async function getHealth(): Promise<HealthResponse> {
   const { data } = await axiosClient.get<HealthResponse>('/api/health');
   return data;
 }
+

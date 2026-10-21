@@ -153,3 +153,4 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 - **Backend** → Render (set all env vars in the Render dashboard)
 
 > Deployment guides will be added in Phase 8.
+

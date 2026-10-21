@@ -66,3 +66,4 @@ export function getDbStatus(): { state: number; label: string } {
   };
   return { state, label: labels[state] ?? 'unknown' };
 }
+

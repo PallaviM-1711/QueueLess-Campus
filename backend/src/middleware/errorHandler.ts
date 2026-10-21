@@ -39,3 +39,4 @@ export function createError(message: string, statusCode: number): AppError {
   err.isOperational = true;
   return err;
 }
+

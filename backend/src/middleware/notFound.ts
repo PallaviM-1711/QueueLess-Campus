@@ -9,3 +9,4 @@ import { createError } from './errorHandler';
 export function notFound(req: Request, _res: Response, next: NextFunction): void {
   next(createError(`Route not found: ${req.method} ${req.originalUrl}`, 404));
 }
+
