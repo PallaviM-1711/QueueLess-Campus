@@ -64,6 +64,21 @@ if (smtpPartiallyConfigured) {
   throw new Error('[Config] Configure SMTP_HOST, SMTP_USER, and SMTP_PASS together');
 }
 
+const razorpay = {
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+  RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
+};
+const razorpayPartiallyConfigured =
+  Boolean(razorpay.RAZORPAY_KEY_ID || razorpay.RAZORPAY_KEY_SECRET) &&
+  !(razorpay.RAZORPAY_KEY_ID && razorpay.RAZORPAY_KEY_SECRET);
+if (razorpayPartiallyConfigured) {
+  throw new Error('[Config] Configure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET together');
+}
+if (razorpay.RAZORPAY_WEBHOOK_SECRET && !razorpay.RAZORPAY_KEY_ID) {
+  throw new Error('[Config] Configure Razorpay API keys before setting the webhook secret');
+}
+
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
   PORT: parsePort(process.env.PORT),
@@ -73,4 +88,5 @@ export const env = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? '7d',
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
   ...smtp,
+  ...razorpay,
 } as const;

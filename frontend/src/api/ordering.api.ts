@@ -24,6 +24,7 @@ export interface OrderRecord {
   status: string;
   paymentMethod: string;
   paymentStatus: string;
+  paymentAttemptExists?: boolean;
   createdAt: string;
   canteen: { _id: string; name: string; location?: string };
   pickupSlot: { _id: string; date: string; startTime: string; endTime: string };
@@ -58,6 +59,7 @@ export async function createPickupSlot(
 export async function placeOrder(input: {
   canteenId: string;
   pickupSlotId: string;
+  paymentMethod?: 'pay_at_pickup' | 'razorpay';
   items: Array<{ menuItemId: string; quantity: number }>;
   notes?: string;
 }): Promise<OrderRecord> {

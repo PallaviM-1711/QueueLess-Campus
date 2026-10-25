@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { createRazorpayOrder, verifyRazorpayCheckout } from '../api/razorpay.api';
+import { loadRazorpayCheckout, openRazorpayCheckout } from '../api/razorpayCheckout';
 import { getOrder, type OrderRecord } from '../api/ordering.api';
 import { connectOrderSocket } from '../api/orderSocket';
 import './orders.css';
 
 export default function OrderPage() {
   const { orderId = '' } = useParams();
+  const location = useLocation();
   const [order, setOrder] = useState<OrderRecord | null>(null);
   const [error, setError] = useState('');
   const [realtimeError, setRealtimeError] = useState('');
+  const [paymentMessage, setPaymentMessage] = useState(() => {
+    const state = location.state as { paymentMessage?: unknown } | null;
+    return typeof state?.paymentMessage === 'string' ? state.paymentMessage : '';
+  });
+  const [paymentBusy, setPaymentBusy] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -23,6 +31,32 @@ export default function OrderPage() {
       mounted = false;
     };
   }, [orderId]);
+
+  async function retryOnlinePayment() {
+    setPaymentBusy(true);
+    setPaymentMessage('');
+    try {
+      if (!order) throw new Error('Order details are not loaded');
+      const payment = await createRazorpayOrder(order._id);
+      await loadRazorpayCheckout();
+      openRazorpayCheckout(payment, `Order ${order.pickupToken}`, {
+        onSuccess: (response) => {
+          void verifyRazorpayCheckout(order._id, response)
+            .then(setOrder)
+            .then(() => setPaymentMessage('Payment captured successfully.'))
+            .catch((reason: Error) => setPaymentMessage(reason.message));
+        },
+        onFailure: (message) => setPaymentMessage(message),
+        onDismiss: () => setPaymentMessage(
+          'Payment was not completed. Your pickup slot remains reserved until staff review.'
+        ),
+      });
+    } catch (reason) {
+      setPaymentMessage(reason instanceof Error ? reason.message : 'Could not start Razorpay Checkout');
+    } finally {
+      setPaymentBusy(false);
+    }
+  }
 
   useEffect(() => {
     const socket = connectOrderSocket();
@@ -61,6 +95,25 @@ export default function OrderPage() {
           <>
             <p className="order-status">Status: {order.status.replaceAll('_', ' ')}</p>
             {realtimeError && <p className="order-hint">Live updates unavailable: {realtimeError}</p>}
+            {paymentMessage && <p className="order-hint" role="status">{paymentMessage}</p>}
+            {order.paymentMethod === 'razorpay' &&
+              order.paymentStatus === 'unpaid' &&
+              order.status === 'pending' && (
+                <div>
+                  <p className="order-hint">
+                    Online payment must be confirmed before the canteen starts preparation.
+                    The pickup slot remains reserved until staff review.
+                  </p>
+                  <button
+                    className="order-submit"
+                    disabled={paymentBusy}
+                    onClick={() => void retryOnlinePayment()}
+                    type="button"
+                  >
+                    {paymentBusy ? 'Opening payment…' : 'Pay online'}
+                  </button>
+                </div>
+              )}
             <p>Pickup token</p>
             <p className="pickup-token">{order.pickupToken}</p>
             <p>Show this token to canteen staff when you collect your order.</p>
@@ -70,7 +123,10 @@ export default function OrderPage() {
                 <dt>Pickup time</dt>
                 <dd>{new Date(order.pickupSlot.date).toLocaleDateString()} · {order.pickupSlot.startTime}–{order.pickupSlot.endTime}</dd>
               </div>
-              <div><dt>Payment</dt><dd>Pay at pickup · {order.paymentStatus}</dd></div>
+              <div>
+                <dt>Payment</dt>
+                <dd>{order.paymentMethod === 'razorpay' ? 'Razorpay' : 'Pay at pickup'} · {order.paymentStatus}</dd>
+              </div>
             </dl>
             <ul className="order-summary">
               {order.items.map((item) => (

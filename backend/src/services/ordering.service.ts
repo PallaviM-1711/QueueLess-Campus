@@ -19,6 +19,7 @@ export interface PlaceOrderInput {
   canteenId: string;
   pickupSlotId: string;
   items: Array<{ menuItemId: string; quantity: number }>;
+  paymentMethod?: PaymentMethod;
   notes?: string;
 }
 
@@ -149,6 +150,10 @@ export async function placeOrder(studentId: string, input: PlaceOrderInput) {
       const totalAmount =
         Math.round(items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) /
         100;
+      const paymentMethod = input.paymentMethod ?? PaymentMethod.PAY_AT_PICKUP;
+      if (paymentMethod === PaymentMethod.RAZORPAY && totalAmount < 1) {
+        throw createError('Online payments require an order total of at least ₹1.00', 400);
+      }
 
       const reservedSlot = await PickupSlot.findOneAndUpdate(
         {
@@ -172,7 +177,7 @@ export async function placeOrder(studentId: string, input: PlaceOrderInput) {
             pickupSlot: slot._id,
             pickupToken: generatePickupToken(),
             status: OrderStatus.PENDING,
-            paymentMethod: PaymentMethod.PAY_AT_PICKUP,
+            paymentMethod,
             paymentStatus: PaymentStatus.UNPAID,
             notes: input.notes,
           },

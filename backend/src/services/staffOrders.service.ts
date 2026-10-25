@@ -1,7 +1,7 @@
 import mongoose, { Types } from 'mongoose';
 import { Order } from '../models/Order';
 import { PickupSlot } from '../models/PickupSlot';
-import { OrderStatus, PaymentStatus } from '../types/enums';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '../types/enums';
 import { createError } from '../middleware/errorHandler';
 
 const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -13,16 +13,72 @@ const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CANCELLED]: [],
 };
 
-export async function listCanteenOrders(canteenId: string, status?: OrderStatus) {
+interface CanteenOrderRecord {
+  _id: string;
+  student: { _id: string; name: string } | null;
+  items: Array<{ menuItem: string; name: string; price: number; quantity: number }>;
+  totalAmount: number;
+  pickupSlot: { _id: string; date: Date; startTime: string; endTime: string } | null;
+  pickupToken: string;
+  status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentAttemptExists: boolean;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export async function listCanteenOrders(
+  canteenId: string,
+  status?: OrderStatus
+): Promise<CanteenOrderRecord[]> {
   if (!Types.ObjectId.isValid(canteenId)) throw createError('Invalid canteen identifier', 400);
-  return Order.find({
+  const orders = await Order.find({
     canteen: canteenId,
     ...(status && { status }),
   })
-    .populate('student', 'name')
-    .populate('pickupSlot', 'date startTime endTime')
+    .select('+razorpayOrderId')
+    .populate<{ student: { _id: Types.ObjectId; name: string } | null }>('student', 'name')
+    .populate<{
+      pickupSlot: {
+        _id: Types.ObjectId;
+        date: Date;
+        startTime: string;
+        endTime: string;
+      } | null;
+    }>('pickupSlot', 'date startTime endTime')
     .sort({ createdAt: 1 })
     .limit(200);
+  return orders.map((order): CanteenOrderRecord => ({
+    _id: order._id.toString(),
+    student: order.student
+      ? { _id: order.student._id.toString(), name: order.student.name }
+      : null,
+    items: order.items.map((item) => ({
+      menuItem: item.menuItem.toString(),
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+    })),
+    totalAmount: order.totalAmount,
+    pickupSlot: order.pickupSlot
+      ? {
+          _id: order.pickupSlot._id.toString(),
+          date: order.pickupSlot.date,
+          startTime: order.pickupSlot.startTime,
+          endTime: order.pickupSlot.endTime,
+        }
+      : null,
+    pickupToken: order.pickupToken,
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    paymentAttemptExists: Boolean(order.razorpayOrderId),
+    notes: order.notes,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+  }));
 }
 
 export async function updateCanteenOrderStatus(
@@ -38,10 +94,32 @@ export async function updateCanteenOrderStatus(
   let updatedOrder: InstanceType<typeof Order> | undefined;
   try {
     await session.withTransaction(async () => {
-      const order = await Order.findOne({ _id: orderId, canteen: canteenId }).session(session);
+      const order = await Order.findOne({ _id: orderId, canteen: canteenId })
+        .select('+razorpayOrderId')
+        .session(session);
       if (!order) throw createError('Order not found', 404);
       if (!allowedTransitions[order.status].includes(nextStatus)) {
         throw createError(`Cannot change order from ${order.status} to ${nextStatus}`, 409);
+      }
+      if (nextStatus === OrderStatus.CANCELLED && order.paymentStatus === PaymentStatus.PAID) {
+        throw createError('Paid orders cannot be cancelled without a refund', 409);
+      }
+      if (
+        nextStatus === OrderStatus.CANCELLED &&
+        order.paymentMethod === PaymentMethod.RAZORPAY &&
+        order.razorpayOrderId
+      ) {
+        throw createError(
+          'This order has an active Razorpay payment order and cannot be cancelled safely',
+          409
+        );
+      }
+      if (
+        order.paymentMethod === PaymentMethod.RAZORPAY &&
+        nextStatus !== OrderStatus.CANCELLED &&
+        order.paymentStatus !== PaymentStatus.PAID
+      ) {
+        throw createError('Razorpay payment must be confirmed before preparation', 409);
       }
 
       const updated = await Order.findOneAndUpdate(
@@ -49,7 +127,8 @@ export async function updateCanteenOrderStatus(
         {
           $set: {
             status: nextStatus,
-            ...(nextStatus === OrderStatus.PICKED_UP && {
+            ...(nextStatus === OrderStatus.PICKED_UP &&
+              order.paymentMethod === PaymentMethod.PAY_AT_PICKUP && {
               paymentStatus: PaymentStatus.PAID,
             }),
           },

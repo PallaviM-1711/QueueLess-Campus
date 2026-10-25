@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction, RequestHandler } from 'express
 import { body, matchedData, validationResult } from 'express-validator';
 import { authenticate, authorize } from '../middleware/authenticate';
 import { createError } from '../middleware/errorHandler';
-import { UserRole } from '../types/enums';
+import { PaymentMethod, UserRole } from '../types/enums';
 import {
   getStudentOrder,
   listStudentOrders,
@@ -61,6 +61,8 @@ router.post(
     .withMessage('Each order item requires a valid menu item ID and quantity from 1 to 50'),
   body('notes').optional().isString().trim().isLength({ max: 200 })
     .withMessage('Order notes must be at most 200 characters'),
+  body('paymentMethod').optional().isIn(Object.values(PaymentMethod))
+    .withMessage('Invalid payment method'),
   validateRequest,
   asyncHandler(async (req, res) => {
     const input = matchedData<PlaceOrderInput>(req, { locations: ['body'] });

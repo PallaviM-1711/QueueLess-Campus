@@ -2,7 +2,7 @@
 
 **A Smart Canteen Pre-Ordering and Queue Management System**
 
-Students can browse canteen menus, pre-order food, book pickup slots, and track their orders in real time — eliminating physical queues at university canteens.
+Students can browse canteen menus, pre-order food, book pickup slots, pay at pickup or with Razorpay, and track their orders in real time — eliminating physical queues at university canteens.
 
 ---
 
@@ -12,7 +12,7 @@ Students can browse canteen menus, pre-order food, book pickup slots, and track 
 QueueLess Campus/
 ├── frontend/                 # React + Vite + TypeScript (Port 5173)
 │   └── src/
-│       ├── api/              # Axios client and API wrappers
+│       ├── api/              # Axios client, payment and other API wrappers
 │       ├── pages/            # Authentication, menu, orders and admin screens
 │       └── routes/           # React Router configuration
 └── backend/                  # Node.js + Express + TypeScript (Port 5000)
@@ -21,8 +21,8 @@ QueueLess Campus/
         ├── middleware/       # Authentication and error handling
         ├── models/           # Mongoose schemas
         ├── realtime/         # Socket.IO authentication and room subscriptions
-        ├── routes/           # Health, auth, menu, booking and order endpoints
-        ├── services/         # Authentication, ordering and staff-order logic
+        ├── routes/           # Health, auth, menu, booking, order and payment endpoints
+        ├── services/         # Authentication, ordering, staff-order and payment logic
         ├── types/            # Shared backend enums and types
         └── utils/            # JWT, OTP, email, and token helpers
 ```
@@ -115,6 +115,12 @@ canteens and send one-time staff invitations. Invitation links expire after
 Order placement uses MongoDB transactions to reserve slot capacity and create an
 order atomically; configure MongoDB Atlas or another replica-set deployment.
 Pickup slot dates and times are currently interpreted as UTC.
+Razorpay is optional: set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` together
+in `backend/.env` to enable Checkout, and use test-mode keys during development.
+For server notifications, set `RAZORPAY_WEBHOOK_SECRET` and configure the
+Razorpay webhook endpoint at `/api/payments/razorpay/webhook` for
+`payment.authorized` and `payment.captured`. Do not put the API secret or webhook
+secret in frontend environment variables.
 
 The backend starts on **http://localhost:5000**.  
 Health/readiness check: **http://localhost:5000/api/health** (returns HTTP 503
@@ -189,9 +195,13 @@ The frontend starts on **http://localhost:5173**.
 | `GET` | `/api/canteens/:canteenId/pickup-slots?date=YYYY-MM-DD` | List future slots with remaining capacity |
 | `POST` | `/api/canteens/:canteenId/pickup-slots` | Create a capacity-limited pickup slot (canteen manager) |
 | `PATCH` | `/api/canteens/:canteenId/pickup-slots/:slotId` | Activate or deactivate a pickup slot (canteen manager) |
-| `POST` | `/api/orders` | Place a pay-at-pickup order; server checks prices, availability and slot capacity |
+| `POST` | `/api/orders` | Place a pay-at-pickup or Razorpay order; server checks prices, availability and slot capacity |
 | `GET` | `/api/orders/me` | List the authenticated student's orders |
 | `GET` | `/api/orders/:orderId` | Read an order owned by the authenticated student |
+| `GET` | `/api/payments/razorpay/config` | Return whether online payment is configured and its public key ID |
+| `POST` | `/api/payments/razorpay/orders/:orderId` | Create/reuse a server-side Razorpay order for an owned order |
+| `POST` | `/api/payments/razorpay/verify` | Verify the Checkout signature and confirm/capture payment server-side |
+| `POST` | `/api/payments/razorpay/webhook` | Process signed `payment.authorized` and `payment.captured` events |
 | `GET` | `/api/canteens/:canteenId/orders` | List a canteen's orders (assigned staff/admin or university super admin) |
 | `PATCH` | `/api/canteens/:canteenId/orders/:orderId/status` | Advance an order through allowed staff statuses |
 | `GET` | `/api/admin/canteens` | List university canteens (super admin only) |
@@ -232,7 +242,7 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 3 | ✅ **Implemented** | Menu catalog, cart, checkout, pickup-slot capacity booking, pickup token and student order history |
 | 4 | ✅ **Implemented** | Staff order queue, validated order status changes and live Socket.IO updates |
 | 5 | ✅ **Implemented** | Super-admin canteen management, staff invitations, assignment and account activation |
-| 6 | ⏳ Pending | Razorpay payment integration |
+| 6 | ✅ **Implemented** | Pay at pickup and optional Razorpay Checkout with server-side capture, signature verification and webhooks |
 | 7 | ⏳ Pending | Super-admin dashboard, analytics |
 | 8 | ⏳ Pending | QR-code pickup, deployment configs |
 
@@ -242,6 +252,8 @@ student menu browsing, local cart, pickup-slot creation and capacity-enforced
 order placement with pickup tokens. Phase 4 provides the staff order queue and
 authorized real-time order status updates. Phase 5 adds scoped university
 administration for canteens and staff, including one-time email invitations.
+Phase 6 adds optional Razorpay payments; gateway keys and webhook secrets must
+be configured by the project owner before online payments are enabled.
 
 ---
 
@@ -254,13 +266,14 @@ administration for canteens and staff, including one-time email invitations.
 - Verification codes are stored as hashes, expire after ten minutes and are invalidated after five incorrect attempts.
 - Auth request throttling is in-memory per backend process; production multi-instance deployments need a shared rate-limit store.
 - Set `TRUST_PROXY_HOPS` to the exact trusted proxy count for your host so per-IP throttling uses the client address.
-- Menu writes verify the user's current active account, role, university, and assigned canteen on the backend. Staff/canteen-admin accounts must be provisioned with their canteen assignment by an administrator; account management UI is not implemented yet.
+- Menu writes verify the user's current active account, role, university, and assigned canteen on the backend. Staff/canteen-admin accounts are provisioned with canteen assignment by a verified super admin.
 - Order prices are recalculated from active menu records on the server. Slot reservation and order creation run in a MongoDB transaction to prevent overbooking.
 - Staff order updates enforce canteen assignment and valid status transitions on the server; cancellation releases the reserved slot in a transaction.
 - Socket.IO connections authenticate with the same JWT and authorize order/canteen room subscriptions before joining. Keep the frontend API origin and backend CORS origin configured for the deployed domains.
 - Public registration and email-code verification can only create/verify student accounts. Staff roles are provisioned by a database-verified super admin; invitation tokens are random, hashed at rest, single-use and expire after 24 hours. Invitation links carry the token in the URL fragment, which is removed from browser history after the page reads it. Staff accounts are deactivated/reassigned server-side and their live sockets are disconnected after changes.
-- Checkout currently supports pay-at-pickup only; Razorpay is not implemented.
-- Razorpay payments verified server-side (Phase 6+).
+- Razorpay's public key ID may be returned to the browser; the API secret and webhook secret remain server-side only. Checkout signatures are verified, payment details are fetched from Razorpay, and authorized payments are captured only for the server-calculated order amount.
+- Unpaid online orders keep their pickup reservation until staff review. Staff may cancel before a Razorpay order is created; after Checkout has been initialized, cancellation is blocked to avoid releasing capacity while a payment can still complete. Refund workflows are not implemented.
+- Razorpay Checkout is loaded from Razorpay's hosted script. Test keys should be used before any live configuration.
 
 ---
 

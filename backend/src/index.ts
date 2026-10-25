@@ -33,6 +33,7 @@ import bookingRouter from './routes/booking.route';
 import ordersRouter from './routes/orders.route';
 import staffOrdersRouter from './routes/staffOrders.route';
 import adminRouter from './routes/admin.route';
+import paymentsRouter from './routes/payments.route';
 import { configureOrderSocket } from './realtime/orderEvents';
 
 // ── Express app setup ────────────────────────────────────────────────────────
@@ -42,7 +43,6 @@ if (env.TRUST_PROXY_HOPS > 0) {
   app.set('trust proxy', env.TRUST_PROXY_HOPS);
 }
 
-// Security headers
 app.use(helmet());
 
 // CORS — only allow the configured client origin
@@ -55,6 +55,10 @@ app.use(
 );
 
 // Body parsers
+app.use(
+  '/api/payments/razorpay/webhook',
+  express.raw({ type: 'application/json', limit: '100kb' })
+);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
@@ -66,6 +70,7 @@ app.use('/api/canteens', bookingRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/canteens', staffOrdersRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/payments', paymentsRouter);
 
 // Placeholder index — gives a clean response instead of 404 on GET /
 app.get('/', (_req, res) => {

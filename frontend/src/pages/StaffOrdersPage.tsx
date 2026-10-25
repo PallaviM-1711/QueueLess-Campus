@@ -131,8 +131,21 @@ export default function StaffOrdersPage() {
                 </ul>
                 {order.notes && <p>Note: {order.notes}</p>}
                 <p>Payment: {order.paymentMethod.replaceAll('_', ' ')} · {order.paymentStatus}</p>
+                {order.paymentMethod === 'razorpay' && order.paymentStatus === 'unpaid' && (
+                  <p>
+                    {order.paymentAttemptExists
+                      ? 'Payment was initiated. Staff actions are locked while Razorpay may still capture it.'
+                      : 'Waiting for the student to start payment; staff may cancel this order.'}
+                  </p>
+                )}
                 <div className="staff-order-actions">
-                  {(statusOptions[order.status] ?? []).map((status) => (
+                  {(statusOptions[order.status] ?? [])
+                    .filter((status) => (
+                      order.paymentMethod !== 'razorpay' ||
+                      order.paymentStatus !== 'unpaid' ||
+                      (status === 'cancelled' && !order.paymentAttemptExists)
+                    ))
+                    .map((status) => (
                     <button
                       disabled={busyOrder === order._id}
                       key={status}

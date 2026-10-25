@@ -2,6 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { readCart, saveCart, type StoredCart } from '../api/cartStorage';
 import { getPickupSlots, placeOrder, type PickupSlot } from '../api/ordering.api';
+import {
+  createRazorpayOrder,
+  getRazorpayConfiguration,
+  verifyRazorpayCheckout,
+  type RazorpayConfiguration,
+} from '../api/razorpay.api';
+import { loadRazorpayCheckout, openRazorpayCheckout } from '../api/razorpayCheckout';
 import './orders.css';
 
 const TODAY_UTC = new Date().toISOString().slice(0, 10);
@@ -14,8 +21,17 @@ export default function CheckoutPage() {
   const [slots, setSlots] = useState<PickupSlot[]>([]);
   const [slotId, setSlotId] = useState('');
   const [notes, setNotes] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'pay_at_pickup' | 'razorpay'>('pay_at_pickup');
+  const [paymentConfiguration, setPaymentConfiguration] = useState<RazorpayConfiguration | null>(null);
+  const [paymentConfigurationError, setPaymentConfigurationError] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    getRazorpayConfiguration()
+      .then(setPaymentConfiguration)
+      .catch((reason: Error) => setPaymentConfigurationError(reason.message));
+  }, []);
 
   useEffect(() => {
     if (!date || !canteenId) return;
@@ -40,18 +56,57 @@ export default function CheckoutPage() {
     }
     setBusy(true);
     setError('');
+    let createdOrderId = '';
     try {
       const order = await placeOrder({
         canteenId,
         pickupSlotId: slotId,
+        paymentMethod,
         items: cart.items.map(({ menuItemId, quantity }) => ({ menuItemId, quantity })),
         ...(notes.trim() && { notes: notes.trim() }),
       });
+      createdOrderId = order._id;
       saveCart(null);
       setCart(null);
-      navigate(`/orders/${order._id}`, { replace: true });
+      if (paymentMethod === 'pay_at_pickup') {
+        navigate(`/orders/${order._id}`, { replace: true });
+        return;
+      }
+
+      const payment = await createRazorpayOrder(order._id);
+      await loadRazorpayCheckout();
+      openRazorpayCheckout(payment, `Order ${order.pickupToken}`, {
+        onSuccess: (response) => {
+          void verifyRazorpayCheckout(order._id, response)
+            .then(() => navigate(`/orders/${order._id}`, { replace: true }))
+            .catch((reason: Error) => navigate(`/orders/${order._id}`, {
+              replace: true,
+              state: { paymentMessage: reason.message },
+            }));
+        },
+        onFailure: (message) => navigate(`/orders/${order._id}`, {
+          replace: true,
+          state: { paymentMessage: message },
+        }),
+        onDismiss: () => navigate(`/orders/${order._id}`, {
+          replace: true,
+          state: { paymentMessage: 'Payment was not completed. Your order remains reserved until staff review.' },
+        }),
+      });
     } catch (reason) {
-      setError((reason as Error).message);
+      if (createdOrderId) {
+        navigate(`/orders/${createdOrderId}`, {
+          replace: true,
+          state: {
+            paymentMessage: reason instanceof Error
+              ? reason.message
+              : 'Online payment could not be started',
+          },
+        });
+      } else {
+        setError(reason instanceof Error ? reason.message : 'Could not place order');
+      }
+    } finally {
       setBusy(false);
     }
   }
@@ -111,10 +166,29 @@ export default function CheckoutPage() {
                 Notes (optional)
                 <textarea maxLength={200} value={notes} onChange={(event) => setNotes(event.target.value)} />
               </label>
-              <p>Payment method: <strong>Pay at pickup</strong></p>
+              <label>
+                Payment method
+                <select
+                  onChange={(event) => {
+                    if (event.target.value === 'pay_at_pickup' || event.target.value === 'razorpay') {
+                      setPaymentMethod(event.target.value);
+                    }
+                  }}
+                  value={paymentMethod}
+                >
+                  <option value="pay_at_pickup">Pay at pickup</option>
+                  {paymentConfiguration?.enabled && <option value="razorpay">Pay online with Razorpay</option>}
+                </select>
+              </label>
+              {paymentConfigurationError && (
+                <p className="order-hint">Payment options could not be loaded: {paymentConfigurationError}</p>
+              )}
+              {paymentConfiguration && !paymentConfiguration.enabled && (
+                <p className="order-hint">Online payments are not configured. Pay at pickup is available.</p>
+              )}
               {error && <p className="order-error" role="alert">{error}</p>}
               <button className="order-submit" disabled={busy || slots.length === 0} type="submit">
-                {busy ? 'Placing order…' : 'Place order'}
+                {busy ? 'Placing order…' : paymentMethod === 'razorpay' ? 'Continue to payment' : 'Place order'}
               </button>
             </form>
           </>
