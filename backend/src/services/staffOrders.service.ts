@@ -92,6 +92,7 @@ export async function updateCanteenOrderStatus(
 
   const session = await mongoose.startSession();
   let updatedOrder: InstanceType<typeof Order> | undefined;
+  const transitionAt = new Date();
   try {
     await session.withTransaction(async () => {
       const order = await Order.findOne({ _id: orderId, canteen: canteenId })
@@ -127,6 +128,10 @@ export async function updateCanteenOrderStatus(
         {
           $set: {
             status: nextStatus,
+            ...(nextStatus === OrderStatus.PREPARING && {
+              preparationStartedAt: transitionAt,
+            }),
+            ...(nextStatus === OrderStatus.READY && { readyAt: transitionAt }),
             ...(nextStatus === OrderStatus.PICKED_UP &&
               order.paymentMethod === PaymentMethod.PAY_AT_PICKUP && {
               paymentStatus: PaymentStatus.PAID,

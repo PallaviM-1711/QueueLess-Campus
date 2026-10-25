@@ -208,6 +208,7 @@ The frontend starts on **http://localhost:5173**.
 | `POST` | `/api/admin/canteens` | Create a university canteen (super admin only) |
 | `PATCH` | `/api/admin/canteens/:canteenId` | Update canteen details or open status (super admin only) |
 | `GET` | `/api/admin/staff` | List university staff accounts (super admin only) |
+| `GET` | `/api/admin/analytics?from=YYYY-MM-DD&to=YYYY-MM-DD` | University-scoped order, paid revenue, popular-item and preparation-time analytics (super admin only; up to 366 days) |
 | `POST` | `/api/admin/staff` | Invite assigned canteen staff/admin by university email |
 | `POST` | `/api/admin/staff/:staffId/resend-invitation` | Resend an unaccepted staff invitation |
 | `PATCH` | `/api/admin/staff/:staffId` | Reassign or activate/deactivate a staff account |
@@ -243,7 +244,7 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 4 | ✅ **Implemented** | Staff order queue, validated order status changes and live Socket.IO updates |
 | 5 | ✅ **Implemented** | Super-admin canteen management, staff invitations, assignment and account activation |
 | 6 | ✅ **Implemented** | Pay at pickup and optional Razorpay Checkout with server-side capture, signature verification and webhooks |
-| 7 | ⏳ Pending | Super-admin dashboard, analytics |
+| 7 | ✅ **Implemented** | University-scoped super-admin analytics for order activity, paid revenue, popular items and preparation times |
 | 8 | ⏳ Pending | QR-code pickup, deployment configs |
 
 Core Mongoose schemas and authentication service helpers are already present.
@@ -253,7 +254,9 @@ order placement with pickup tokens. Phase 4 provides the staff order queue and
 authorized real-time order status updates. Phase 5 adds scoped university
 administration for canteens and staff, including one-time email invitations.
 Phase 6 adds optional Razorpay payments; gateway keys and webhook secrets must
-be configured by the project owner before online payments are enabled.
+be configured by the project owner before online payments are enabled. Phase 7
+adds university-scoped order, revenue, popular-item and preparation-time
+analytics to the super-admin dashboard.
 
 ---
 
@@ -274,6 +277,7 @@ be configured by the project owner before online payments are enabled.
 - Razorpay's public key ID may be returned to the browser; the API secret and webhook secret remain server-side only. Checkout signatures are verified, payment details are fetched from Razorpay, and authorized payments are captured only for the server-calculated order amount.
 - Unpaid online orders keep their pickup reservation until staff review. Staff may cancel before a Razorpay order is created; after Checkout has been initialized, cancellation is blocked to avoid releasing capacity while a payment can still complete. Refund workflows are not implemented.
 - Razorpay Checkout is loaded from Razorpay's hosted script. Test keys should be used before any live configuration.
+- Super-admin analytics are scoped to canteens in the administrator's university. Revenue includes non-cancelled orders marked paid; average preparation time is measured from staff marking an order as preparing until it is ready. Orders created before timestamp tracking was added are excluded from that average.
 
 ---
 

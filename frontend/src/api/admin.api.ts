@@ -17,9 +17,40 @@ export interface AdminStaff {
   createdAt: string;
 }
 
+export interface AdminAnalytics {
+  range: { from: string; to: string };
+  summary: {
+    totalOrders: number;
+    completedOrders: number;
+    cancelledOrders: number;
+    unpaidOrders: number;
+    revenue: number;
+    averagePreparationMinutes: number | null;
+  };
+  canteens: Array<{
+    canteenId: string;
+    name: string;
+    orders: number;
+    revenue: number;
+  }>;
+  popularItems: Array<{
+    name: string;
+    unitsOrdered: number;
+    orderCount: number;
+  }>;
+}
+
 interface CanteenResponse {
   success: boolean;
   canteen: AdminCanteen;
+}
+
+export async function getAdminAnalytics(from: string, to: string): Promise<AdminAnalytics> {
+  const { data } = await axiosClient.get<{
+    success: boolean;
+    analytics: AdminAnalytics;
+  }>('/api/admin/analytics', { params: { from, to } });
+  return data.analytics;
 }
 
 export async function getAdminCanteens(): Promise<AdminCanteen[]> {

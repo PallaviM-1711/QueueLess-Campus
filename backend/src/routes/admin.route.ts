@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
-import { body, matchedData, param, validationResult } from 'express-validator';
+import { body, matchedData, param, query, validationResult } from 'express-validator';
 import { authenticate } from '../middleware/authenticate';
 import { authorizeSuperAdmin } from '../middleware/authorizeSuperAdmin';
 import { createError } from '../middleware/errorHandler';
@@ -12,6 +12,7 @@ import {
   updateAdminStaff,
   type CanteenInput,
 } from '../services/admin.service';
+import { getAdminAnalytics } from '../services/adminAnalytics.service';
 import { inviteStaffMember, resendStaffInvitation } from '../services/auth.service';
 import { getSocketServer } from '../realtime/socket';
 
@@ -50,6 +51,24 @@ function requireFields(fields: string[]) {
 }
 
 const protectedByUniversityAdmin = [authenticate, authorizeSuperAdmin];
+router.get(
+  '/analytics',
+  ...protectedByUniversityAdmin,
+  query('from').optional().matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('Start date must use YYYY-MM-DD format'),
+  query('to').optional().matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('End date must use YYYY-MM-DD format'),
+  validateRequest,
+  asyncHandler(async (req, res) => {
+    const input = matchedData<{ from?: string; to?: string }>(
+      req,
+      { locations: ['query'] }
+    );
+    const analytics = await getAdminAnalytics(req.user!.universityId, input);
+    res.json({ success: true, analytics });
+  })
+);
+
 const optionalCanteenFields = [
   body('name').optional().isString().trim().isLength({ min: 2, max: 80 })
     .withMessage('Canteen name must be between 2 and 80 characters'),

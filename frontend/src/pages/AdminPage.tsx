@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   createAdminCanteen,
+  getAdminAnalytics,
   getAdminCanteens,
   getAdminStaff,
   inviteStaff,
@@ -9,6 +10,7 @@ import {
   setCanteenOpen,
   updateStaff,
   type AdminCanteen,
+  type AdminAnalytics,
   type AdminStaff,
 } from '../api/admin.api';
 import { getCurrentUser } from '../api/auth.api';
@@ -21,10 +23,18 @@ const emptyInvitation = {
   role: 'staff' as AdminStaff['role'],
   canteenId: '',
 };
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+});
 
 export default function AdminPage() {
   const [canteens, setCanteens] = useState<AdminCanteen[]>([]);
   const [staff, setStaff] = useState<AdminStaff[]>([]);
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+  const [analyticsDays, setAnalyticsDays] = useState('30');
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState('');
   const [canteenForm, setCanteenForm] = useState(emptyCanteen);
   const [invitationForm, setInvitationForm] = useState(emptyInvitation);
   const [allowed, setAllowed] = useState(false);
@@ -65,6 +75,31 @@ export default function AdminPage() {
       mounted = false;
     };
   }, [refresh]);
+
+  useEffect(() => {
+    if (!allowed) return;
+    let mounted = true;
+    const end = new Date();
+    const to = end.toISOString().slice(0, 10);
+    const fromDate = new Date(Date.UTC(
+      end.getUTCFullYear(),
+      end.getUTCMonth(),
+      end.getUTCDate() - Number(analyticsDays) + 1
+    ));
+    getAdminAnalytics(fromDate.toISOString().slice(0, 10), to)
+      .then((result) => {
+        if (mounted) setAnalytics(result);
+      })
+      .catch((reason: Error) => {
+        if (mounted) setAnalyticsError(reason.message);
+      })
+      .finally(() => {
+        if (mounted) setAnalyticsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [allowed, analyticsDays]);
 
   async function submitCanteen(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -167,6 +202,103 @@ export default function AdminPage() {
       {!loading && !allowed && <p>Administration access is unavailable for this account.</p>}
       {!loading && allowed && (
         <>
+          <section className="admin-card">
+            <header className="admin-analytics-header">
+              <div>
+                <h2>University analytics</h2>
+                <p>Order activity and paid revenue across your canteens.</p>
+              </div>
+              <label>
+                Date range
+                <select
+                  onChange={(event) => {
+                    setAnalyticsError('');
+                    setAnalyticsLoading(true);
+                    setAnalyticsDays(event.target.value);
+                  }}
+                  value={analyticsDays}
+                >
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                </select>
+              </label>
+            </header>
+            {analyticsLoading && <p>Loading analytics…</p>}
+            {analyticsError && (
+              <p className="admin-notice admin-error" role="alert">{analyticsError}</p>
+            )}
+            {analytics && !analyticsLoading && (
+              <>
+                <div className="admin-analytics-metrics">
+                  <article>
+                    <span>Orders</span>
+                    <strong>{analytics.summary.totalOrders}</strong>
+                  </article>
+                  <article>
+                    <span>Picked up</span>
+                    <strong>{analytics.summary.completedOrders}</strong>
+                  </article>
+                  <article>
+                    <span>Cancelled</span>
+                    <strong>{analytics.summary.cancelledOrders}</strong>
+                  </article>
+                  <article>
+                    <span>Unpaid</span>
+                    <strong>{analytics.summary.unpaidOrders}</strong>
+                  </article>
+                  <article>
+                    <span>Paid revenue</span>
+                    <strong>{currencyFormatter.format(analytics.summary.revenue)}</strong>
+                  </article>
+                  <article>
+                    <span>Average preparation</span>
+                    <strong>
+                      {analytics.summary.averagePreparationMinutes === null
+                        ? 'Not available'
+                        : `${analytics.summary.averagePreparationMinutes} min`}
+                    </strong>
+                  </article>
+                </div>
+                <p className="admin-analytics-note">
+                  Preparation time covers orders with recorded preparation-start and ready timestamps.
+                  Older orders without these timestamps are excluded.
+                </p>
+                <div className="admin-analytics-details">
+                  <section>
+                    <h3>Most ordered items</h3>
+                    {analytics.popularItems.length === 0 ? (
+                      <p>No non-cancelled orders in this range.</p>
+                    ) : (
+                      <ol className="admin-analytics-list">
+                        {analytics.popularItems.map((item) => (
+                          <li key={item.name}>
+                            <span>{item.name} · {item.orderCount} orders</span>
+                            <strong>{item.unitsOrdered} ordered</strong>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </section>
+                  <section>
+                    <h3>Canteen performance</h3>
+                    {analytics.canteens.length === 0 ? (
+                      <p>No canteens are configured yet.</p>
+                    ) : (
+                      <ul className="admin-analytics-list">
+                        {analytics.canteens.map((canteen) => (
+                          <li key={canteen.canteenId}>
+                            <span>{canteen.name} · {canteen.orders} orders</span>
+                            <strong>{currencyFormatter.format(canteen.revenue)}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </div>
+              </>
+            )}
+          </section>
           <section className="admin-card">
             <h2>Canteens</h2>
             {canteens.length === 0 ? (

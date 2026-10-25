@@ -27,6 +27,8 @@ export interface IOrder extends Document {
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  preparationStartedAt?: Date;
+  readyAt?: Date;
   /** Razorpay fields — populated only for online payments */
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
@@ -88,6 +90,8 @@ const orderSchema = new Schema<IOrder>(
       enum: Object.values(PaymentStatus),
       default: PaymentStatus.UNPAID,
     },
+    preparationStartedAt: { type: Date },
+    readyAt: { type: Date },
     razorpayOrderId: { type: String, select: false },
     razorpayPaymentId: { type: String, select: false },
     razorpaySignature: { type: String, select: false },
@@ -103,5 +107,7 @@ orderSchema.set('toJSON', {
     return ret;
   },
 });
+
+orderSchema.index({ canteen: 1, createdAt: 1 });
 
 export const Order = model<IOrder>('Order', orderSchema);
