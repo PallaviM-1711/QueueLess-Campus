@@ -157,6 +157,11 @@ The frontend starts on **http://localhost:5173**.
 | `POST` | `/api/auth/resend-otp` | Resend a verification code |
 | `POST` | `/api/auth/login` | Log in a verified student |
 | `GET` | `/api/auth/me` | Return the authenticated user's profile |
+| `GET` | `/api/canteens` | List active canteens at the authenticated user's university |
+| `GET` | `/api/canteens/:canteenId/menu` | Browse/search a canteen menu (supports `search`, `category`, `isVeg`) |
+| `POST` | `/api/canteens/:canteenId/menu` | Add a menu item (assigned canteen staff/admin or university super admin) |
+| `PATCH` | `/api/canteens/:canteenId/menu/:itemId` | Update a menu item or its availability |
+| `DELETE` | `/api/canteens/:canteenId/menu/:itemId` | Deactivate a menu item without removing order history |
 
 ---
 
@@ -180,7 +185,7 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 |-------|--------|-------|
 | 1 | ✅ **Foundation** | App scaffolds, environment validation, MongoDB lifecycle, health/readiness check, setup docs |
 | 2 | ✅ **Implemented** | Student registration, college-domain validation, email verification, login, profile endpoint (requires MongoDB and SMTP for end-to-end use) |
-| 3 | ⏳ Pending | Menu API, cart, checkout, pickup-slot booking |
+| 3 | ⏳ In progress | Menu catalog implemented; cart, checkout, and pickup-slot booking remain |
 | 4 | ⏳ Pending | Socket.IO live order updates |
 | 5 | ⏳ Pending | Staff dashboard, menu management |
 | 6 | ⏳ Pending | Razorpay payment integration |
@@ -189,7 +194,8 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 
 Core Mongoose schemas and authentication service helpers are already present,
 and Phase 2 now wires the student authentication flows through API routes and
-the frontend. Ordering features remain pending.
+the frontend. The menu catalog supports scoped staff management and student
+browsing; cart, checkout, booking, and order flows remain pending.
 
 ---
 
@@ -202,6 +208,7 @@ the frontend. Ordering features remain pending.
 - Verification codes are stored as hashes, expire after ten minutes and are invalidated after five incorrect attempts.
 - Auth request throttling is in-memory per backend process; production multi-instance deployments need a shared rate-limit store.
 - Set `TRUST_PROXY_HOPS` to the exact trusted proxy count for your host so per-IP throttling uses the client address.
+- Menu writes verify the user's current active account, role, university, and assigned canteen on the backend. Staff/canteen-admin accounts must be provisioned with their canteen assignment by an administrator; account management UI is not implemented yet.
 - Razorpay payments verified server-side (Phase 6+).
 
 ---

@@ -31,7 +31,10 @@ export function authenticate(
     return next(createError('Authentication required — no token provided', 401));
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.slice('Bearer '.length).trim();
+  if (!token) {
+    return next(createError('Authentication required — no token provided', 401));
+  }
 
   try {
     req.user = verifyToken(token);
@@ -66,4 +69,3 @@ export function authorize(...roles: UserRole[]) {
     next();
   };
 }
-

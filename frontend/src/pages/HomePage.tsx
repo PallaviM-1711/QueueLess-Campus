@@ -10,6 +10,7 @@ import {
   getCurrentUser,
   type AuthUser,
 } from '../api/auth.api';
+import { getCanteens, type CanteenSummary } from '../api/menu.api';
 import { getHealth, type HealthResponse } from '../api/health.api';
 
 export default function HomePage() {
@@ -17,6 +18,8 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [canteens, setCanteens] = useState<CanteenSummary[]>([]);
+  const [canteenError, setCanteenError] = useState('');
 
   useEffect(() => {
     getHealth()
@@ -25,7 +28,14 @@ export default function HomePage() {
 
     if (localStorage.getItem('qlc_token')) {
       getCurrentUser()
-        .then(setUser)
+        .then((currentUser) => {
+          setUser(currentUser);
+          return getCanteens().catch((reason: Error) => {
+            setCanteenError(reason.message);
+            return [];
+          });
+        })
+        .then(setCanteens)
         .catch((reason: Error & { status?: number }) => {
           if (reason.status === 401) {
             clearAuthToken();
@@ -63,6 +73,26 @@ export default function HomePage() {
         )}
       </nav>
       {authError && <p role="alert">Could not load your account: {authError}</p>}
+      {canteenError && <p role="alert">Could not load canteens: {canteenError}</p>}
+
+      {user && (
+        <section aria-labelledby="canteens-title" style={{ marginTop: '2rem' }}>
+          <h2 id="canteens-title">Your university canteens</h2>
+          {canteens.length === 0 ? (
+            <p>No active canteens are available yet.</p>
+          ) : (
+            <ul>
+              {canteens.map((canteen) => (
+                <li key={canteen._id}>
+                  <Link to={`/canteens/${canteen._id}/menu`}>{canteen.name}</Link>
+                  {canteen.location && <span> · {canteen.location}</span>}
+                  <span> · {canteen.isOpen ? 'Open' : 'Closed'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <section style={{ marginTop: '2rem', padding: '1rem', background: '#f4f4f4', borderRadius: 8 }}>
         <h2 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Backend Status</h2>

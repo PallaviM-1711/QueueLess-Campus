@@ -28,6 +28,7 @@ import { notFound } from './middleware/notFound';
 // Routes
 import healthRouter from './routes/health.route';
 import authRouter from './routes/auth.route';
+import menuRouter from './routes/menu.route';
 
 // ── Express app setup ────────────────────────────────────────────────────────
 const app = express();
@@ -55,6 +56,7 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/health', healthRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/canteens', menuRouter);
 
 // Placeholder index — gives a clean response instead of 404 on GET /
 app.get('/', (_req, res) => {

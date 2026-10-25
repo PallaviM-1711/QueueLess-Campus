@@ -13,6 +13,7 @@ export interface JwtPayload {
   userId: string;
   role: UserRole;
   universityId: string;
+  canteenId?: string;
 }
 
 /**
@@ -24,12 +25,14 @@ export interface JwtPayload {
 export function signToken(
   userId: Types.ObjectId,
   role: UserRole,
-  universityId: Types.ObjectId
+  universityId: Types.ObjectId,
+  canteenId?: Types.ObjectId
 ): string {
   const payload: JwtPayload = {
     userId: userId.toString(),
     role,
     universityId: universityId.toString(),
+    ...(canteenId && { canteenId: canteenId.toString() }),
   };
 
   return jwt.sign(payload, env.JWT_SECRET, {
@@ -50,6 +53,8 @@ export function verifyToken(token: string): JwtPayload {
     !/^[a-f\d]{24}$/i.test(decoded.userId) ||
     typeof decoded.universityId !== 'string' ||
     !/^[a-f\d]{24}$/i.test(decoded.universityId) ||
+    (decoded.canteenId !== undefined &&
+      (typeof decoded.canteenId !== 'string' || !/^[a-f\d]{24}$/i.test(decoded.canteenId))) ||
     !Object.values(UserRole).includes(decoded.role)
   ) {
     throw new Error('Invalid token payload');
@@ -58,5 +63,6 @@ export function verifyToken(token: string): JwtPayload {
     userId: decoded.userId,
     role: decoded.role,
     universityId: decoded.universityId,
+    ...(typeof decoded.canteenId === 'string' && { canteenId: decoded.canteenId }),
   };
 }

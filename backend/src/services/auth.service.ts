@@ -163,7 +163,8 @@ export async function verifyEmail(
   const token = signToken(
     user._id as Types.ObjectId,
     user.role,
-    user.university as unknown as Types.ObjectId
+    user.university as unknown as Types.ObjectId,
+    user.canteen
   );
 
   return { token, user: toAuthUser(user) };
@@ -226,7 +227,8 @@ export async function loginUser(
   const token = signToken(
     user._id as Types.ObjectId,
     user.role,
-    user.university as unknown as Types.ObjectId
+    user.university as unknown as Types.ObjectId,
+    user.canteen
   );
 
   return { token, user: toAuthUser(user) };

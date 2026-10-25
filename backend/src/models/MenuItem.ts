@@ -63,4 +63,6 @@ menuItemSchema.set('toJSON', {
   },
 });
 
+menuItemSchema.index({ canteen: 1, isActive: 1, category: 1, name: 1 });
+
 export const MenuItem = model<IMenuItem>('MenuItem', menuItemSchema);

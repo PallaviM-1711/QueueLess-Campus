@@ -1,0 +1,234 @@
+.menu-page {
+  width: min(1120px, 100% - 2rem);
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+}
+
+.menu-header {
+  margin-bottom: 1.5rem;
+}
+
+.menu-back {
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.menu-header h1 {
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  line-height: 1.2;
+}
+
+.menu-header p,
+.menu-category {
+  color: var(--color-muted);
+}
+
+.menu-notice,
+.menu-empty {
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  background: #fff3e8;
+}
+
+.menu-error {
+  background: #fff0f0;
+  color: #9b1c1c;
+}
+
+.menu-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) minmax(150px, 1fr) auto;
+  align-items: end;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.menu-filters label,
+.menu-manage label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.menu-filters input,
+.menu-filters select,
+.menu-manage input {
+  min-height: 42px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.menu-check {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  min-height: 42px;
+  font-weight: 500 !important;
+}
+
+.menu-check input {
+  width: 18px;
+  height: 18px;
+}
+
+.menu-manage {
+  margin: 2rem 0;
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.menu-manage h2 {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.menu-manage form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.9rem;
+}
+
+.menu-wide {
+  grid-column: span 2;
+}
+
+.menu-manage button,
+.menu-item-actions button {
+  min-height: 40px;
+  padding: 0.5rem 0.8rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.menu-manage button:disabled,
+.menu-item-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.menu-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.menu-card-unavailable {
+  opacity: 0.7;
+}
+
+.menu-card > img {
+  display: block;
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  background: var(--color-surface);
+}
+
+.menu-card-body {
+  padding: 1rem;
+}
+
+.menu-card-title,
+.menu-card-footer,
+.menu-item-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.menu-card-title h2 {
+  font-size: 1.1rem;
+}
+
+.menu-card-body > p {
+  margin-top: 0.5rem;
+}
+
+.menu-category {
+  font-size: 0.88rem;
+}
+
+.menu-card-footer {
+  margin-top: 1rem;
+}
+
+.menu-card-footer strong {
+  color: var(--color-primary-dark);
+}
+
+.veg-mark,
+.nonveg-mark {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid #25813a;
+  border-radius: 3px;
+}
+
+.veg-mark::after,
+.nonveg-mark::after {
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: 2px auto;
+  border-radius: 50%;
+  background: #25813a;
+  content: '';
+}
+
+.nonveg-mark {
+  border-color: #ad3326;
+}
+
+.nonveg-mark::after {
+  background: #ad3326;
+}
+
+.menu-item-actions {
+  justify-content: flex-start;
+  margin-top: 1rem;
+}
+
+.menu-item-actions button:last-child {
+  background: #9b1c1c;
+}
+
+@media (max-width: 680px) {
+  .menu-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-manage form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .menu-manage form {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-wide {
+    grid-column: auto;
+  }
+}
