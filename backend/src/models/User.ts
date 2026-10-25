@@ -4,8 +4,8 @@
  *
  * Security decisions:
  *  - Password is never returned in queries (select: false)
- *  - Email OTP is never returned in queries (select: false)
- *  - Tokens are hashed before storage
+ *  - Verification code data is never returned in queries (select: false)
+ *  - Verification codes are hashed before storage
  */
 
 import { Schema, model, Document, Types } from 'mongoose';
@@ -24,6 +24,7 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   emailOtp?: string;
   emailOtpExpiry?: Date;
+  emailOtpAttempts: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -72,6 +73,7 @@ const userSchema = new Schema<IUser>(
     isEmailVerified: { type: Boolean, default: false },
     emailOtp: { type: String, select: false },
     emailOtpExpiry: { type: Date, select: false },
+    emailOtpAttempts: { type: Number, default: 0, select: false },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

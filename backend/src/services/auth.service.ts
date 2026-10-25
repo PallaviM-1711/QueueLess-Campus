@@ -7,6 +7,8 @@
  */
 
 import { Types } from 'mongoose';
+import { createHmac, timingSafeEqual } from 'crypto';
+import { env } from '../config/env';
 import { User, IUser } from '../models/User';
 import { University } from '../models/University';
 import { UserRole } from '../types/enums';
@@ -14,6 +16,18 @@ import { signToken } from '../utils/jwt';
 import { generateOtp } from '../utils/otp';
 import { sendOtpEmail } from '../utils/mailer';
 import { createError } from '../middleware/errorHandler';
+
+const MAX_OTP_ATTEMPTS = 5;
+
+function hashOtp(otp: string): string {
+  return createHmac('sha256', env.JWT_SECRET).update(otp).digest('hex');
+}
+
+function matchesOtp(storedHash: string, otp: string): boolean {
+  if (!/^[a-f0-9]{64}$/.test(storedHash)) return false;
+  const candidateHash = hashOtp(otp);
+  return timingSafeEqual(Buffer.from(storedHash, 'hex'), Buffer.from(candidateHash, 'hex'));
+}
 
 // ── Register ─────────────────────────────────────────────────────────────────
 
@@ -67,8 +81,9 @@ export async function registerStudent(input: RegisterInput): Promise<{ message: 
     );
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
   // 2. Check for duplicate email
-  const existing = await User.findOne({ email });
+  const existing = await User.findOne({ email: normalizedEmail });
   if (existing) {
     throw createError('An account with this email already exists', 409);
   }
@@ -79,24 +94,29 @@ export async function registerStudent(input: RegisterInput): Promise<{ message: 
   // 4. Create user (password is hashed by pre-save hook)
   const user = await User.create({
     name,
-    email,
+    email: normalizedEmail,
     password,
     role: UserRole.STUDENT,
     university: university._id,
     isEmailVerified: false,
-    emailOtp: otp,
+    emailOtp: hashOtp(otp),
     emailOtpExpiry: expiry,
+    emailOtpAttempts: 0,
   });
 
-  // 5. Send verification email (non-blocking — don't fail registration if mail fails)
+  // Keep the account so the student can request another code if delivery fails.
   try {
-    await sendOtpEmail(email, name, otp);
-  } catch (mailErr) {
-    console.error('[Auth] Failed to send OTP email:', (mailErr as Error).message);
+    await sendOtpEmail(normalizedEmail, name, otp);
+  } catch {
+    console.error('[Auth] Verification email delivery failed');
+    throw createError(
+      'Your account was created, but the verification email could not be sent. Please try resending the code.',
+      503
+    );
   }
 
   return {
-    message: `Account created. A 6-digit verification code has been sent to ${email}. Please verify within 10 minutes.`,
+    message: `Account created. A 6-digit verification code has been sent to ${normalizedEmail}. Please verify within 10 minutes.`,
   };
 }
 
@@ -107,28 +127,37 @@ export async function verifyEmail(
   otp: string
 ): Promise<{ token: string; user: AuthUser }> {
   // Select fields hidden by default
-  const user = await User.findOne({ email })
-    .select('+emailOtp +emailOtpExpiry');
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail })
+    .select('+emailOtp +emailOtpExpiry +emailOtpAttempts');
 
-  if (!user) throw createError('User not found', 404);
-  if (user.isEmailVerified) throw createError('Email is already verified', 400);
+  const invalidCode = createError('Invalid or expired verification code', 400);
+  if (!user || user.isEmailVerified) throw invalidCode;
 
-  if (!user.emailOtp || !user.emailOtpExpiry) {
-    throw createError('No verification code found — please request a new one', 400);
+  if (
+    !user.emailOtp ||
+    !user.emailOtpExpiry ||
+    user.emailOtpAttempts >= MAX_OTP_ATTEMPTS ||
+    new Date() > user.emailOtpExpiry
+  ) {
+    throw invalidCode;
   }
 
-  if (new Date() > user.emailOtpExpiry) {
-    throw createError('Verification code has expired — please request a new one', 400);
-  }
-
-  if (user.emailOtp !== otp.trim()) {
-    throw createError('Invalid verification code', 400);
+  if (!matchesOtp(user.emailOtp, otp.trim())) {
+    user.emailOtpAttempts += 1;
+    if (user.emailOtpAttempts >= MAX_OTP_ATTEMPTS) {
+      user.emailOtp = undefined;
+      user.emailOtpExpiry = undefined;
+    }
+    await user.save();
+    throw invalidCode;
   }
 
   // Mark verified and clear OTP
   user.isEmailVerified = true;
   user.emailOtp = undefined;
   user.emailOtpExpiry = undefined;
+  user.emailOtpAttempts = 0;
   await user.save();
 
   const token = signToken(
@@ -143,22 +172,26 @@ export async function verifyEmail(
 // ── Resend OTP ────────────────────────────────────────────────────────────────
 
 export async function resendOtp(email: string): Promise<{ message: string }> {
-  const user = await User.findOne({ email }).select('+emailOtp +emailOtpExpiry');
-  if (!user) throw createError('User not found', 404);
-  if (user.isEmailVerified) throw createError('Email is already verified', 400);
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail })
+    .select('+emailOtp +emailOtpExpiry +emailOtpAttempts');
+  const genericMessage = 'If the address is registered and unverified, a new code will be sent.';
+  if (!user || user.isEmailVerified) return { message: genericMessage };
 
   const { otp, expiry } = generateOtp();
-  user.emailOtp = otp;
+  user.emailOtp = hashOtp(otp);
   user.emailOtpExpiry = expiry;
+  user.emailOtpAttempts = 0;
   await user.save();
 
   try {
-    await sendOtpEmail(email, user.name, otp);
-  } catch (mailErr) {
-    console.error('[Auth] Failed to resend OTP:', (mailErr as Error).message);
+    await sendOtpEmail(normalizedEmail, user.name, otp);
+  } catch {
+    console.error('[Auth] Verification email delivery failed');
+    throw createError('The verification email could not be sent. Please try again later.', 503);
   }
 
-  return { message: 'A new verification code has been sent to your email.' };
+  return { message: genericMessage };
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -171,7 +204,8 @@ export interface LoginInput {
 export async function loginUser(
   input: LoginInput
 ): Promise<{ token: string; user: AuthUser }> {
-  const { email, password } = input;
+  const email = input.email.trim().toLowerCase();
+  const { password } = input;
 
   // select password explicitly (it's select:false)
   const user = await User.findOne({ email }).select('+password');
@@ -203,5 +237,6 @@ export async function loginUser(
 export async function getMe(userId: string): Promise<IUser> {
   const user = await User.findById(userId).populate('university', 'name emailDomain');
   if (!user) throw createError('User not found', 404);
+  if (!user.isActive) throw createError('Your account has been deactivated.', 403);
   return user;
 }

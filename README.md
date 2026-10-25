@@ -36,7 +36,7 @@ not scaffolded before they have a concrete use.
 
 | Tool | Minimum Version |
 |------|----------------|
-| Node.js | v18+ (v24 recommended) |
+| Node.js | v20.19+ or v22.12+ |
 | npm | v9+ |
 | Git | any recent version |
 | MongoDB Atlas | Free tier cluster |
@@ -79,13 +79,20 @@ Generate a local JWT secret with Node.js:
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
-Then install dependencies and start the backend:
+Then install dependencies, build the backend tools, and register the approved
+university email domain:
 
 ```bash
 cd backend
 npm ci
+npm run build
+npm run university:create -- --name "Your University" --email-domain college.edu
 npm run dev
 ```
+
+The university domain must match the part after `@` in student email addresses.
+Use a domain your institution controls. Configure SMTP in `backend/.env` before
+registering students; signup will fail visibly if email delivery is unavailable.
 
 The backend starts on **http://localhost:5000**.  
 Health/readiness check: **http://localhost:5000/api/health** (returns HTTP 503
@@ -126,6 +133,7 @@ The frontend starts on **http://localhost:5173**.
 | `npm run dev` | Start dev server with hot-reload |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled production build |
+| `npm run university:create -- --name "University" --email-domain college.edu` | Add an approved college email domain |
 | `npm run type-check` | Type-check without emitting |
 
 ### Frontend (`/frontend`)
@@ -139,11 +147,16 @@ The frontend starts on **http://localhost:5173**.
 
 ---
 
-## API Endpoints (Phase 1)
+## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/health` | Server readiness and DB connection status (503 if DB is unavailable) |
+| `POST` | `/api/auth/register` | Register a student for an approved university email domain (SMTP required) |
+| `POST` | `/api/auth/verify-email` | Verify the email code and issue a JWT |
+| `POST` | `/api/auth/resend-otp` | Resend a verification code |
+| `POST` | `/api/auth/login` | Log in a verified student |
+| `GET` | `/api/auth/me` | Return the authenticated user's profile |
 
 ---
 
@@ -166,7 +179,7 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | Phase | Status | Scope |
 |-------|--------|-------|
 | 1 | ✅ **Foundation** | App scaffolds, environment validation, MongoDB lifecycle, health/readiness check, setup docs |
-| 2 | ⏳ Pending | Wire existing auth services/models to API routes and complete email verification |
+| 2 | ✅ **Implemented** | Student registration, college-domain validation, email verification, login, profile endpoint (requires MongoDB and SMTP for end-to-end use) |
 | 3 | ⏳ Pending | Menu API, cart, checkout, pickup-slot booking |
 | 4 | ⏳ Pending | Socket.IO live order updates |
 | 5 | ⏳ Pending | Staff dashboard, menu management |
@@ -175,8 +188,8 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 8 | ⏳ Pending | QR-code pickup, deployment configs |
 
 Core Mongoose schemas and authentication service helpers are already present,
-but the application does not yet expose authentication or ordering routes.
-Those features are not considered complete until wired and tested end to end.
+and Phase 2 now wires the student authentication flows through API routes and
+the frontend. Ordering features remain pending.
 
 ---
 
@@ -185,7 +198,10 @@ Those features are not considered complete until wired and tested end to end.
 - All secrets are stored in `.env` files — **never in source code**.
 - HTTP headers secured with [Helmet](https://helmetjs.github.io/).
 - CORS restricted to the configured `CLIENT_ORIGIN`.
-- JWT used for stateless auth (Phase 2+).
+- JWT used for stateless auth; browser sessions currently store the token in `localStorage`.
+- Verification codes are stored as hashes, expire after ten minutes and are invalidated after five incorrect attempts.
+- Auth request throttling is in-memory per backend process; production multi-instance deployments need a shared rate-limit store.
+- Set `TRUST_PROXY_HOPS` to the exact trusted proxy count for your host so per-IP throttling uses the client address.
 - Razorpay payments verified server-side (Phase 6+).
 
 ---

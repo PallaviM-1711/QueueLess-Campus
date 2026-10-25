@@ -27,9 +27,14 @@ import { notFound } from './middleware/notFound';
 
 // Routes
 import healthRouter from './routes/health.route';
+import authRouter from './routes/auth.route';
 
 // ── Express app setup ────────────────────────────────────────────────────────
 const app = express();
+
+if (env.TRUST_PROXY_HOPS > 0) {
+  app.set('trust proxy', env.TRUST_PROXY_HOPS);
+}
 
 // Security headers
 app.use(helmet());
@@ -49,6 +54,7 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/health', healthRouter);
+app.use('/api/auth', authRouter);
 
 // Placeholder index — gives a clean response instead of 404 on GET /
 app.get('/', (_req, res) => {

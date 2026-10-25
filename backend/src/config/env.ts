@@ -27,16 +27,50 @@ function parsePort(value: string | undefined): number {
   return port;
 }
 
+function optionalPort(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('[Config] SMTP_PORT must be an integer between 1 and 65535');
+  }
+  return port;
+}
+
+function parseProxyHops(value: string | undefined): number {
+  const hops = Number(value ?? '0');
+  if (!Number.isInteger(hops) || hops < 0) {
+    throw new Error('[Config] TRUST_PROXY_HOPS must be a non-negative integer');
+  }
+  return hops;
+}
+
 const jwtSecret = requireEnv('JWT_SECRET');
 if (jwtSecret.length < 64) {
   throw new Error('[Config] JWT_SECRET must be at least 64 characters long');
 }
 
+const smtp = {
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: optionalPort(process.env.SMTP_PORT) ?? 587,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+};
+
+const smtpConfigured = Boolean(smtp.SMTP_HOST && smtp.SMTP_USER && smtp.SMTP_PASS);
+const smtpPartiallyConfigured =
+  Boolean(smtp.SMTP_HOST || smtp.SMTP_USER || smtp.SMTP_PASS) && !smtpConfigured;
+if (smtpPartiallyConfigured) {
+  throw new Error('[Config] Configure SMTP_HOST, SMTP_USER, and SMTP_PASS together');
+}
+
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
   PORT: parsePort(process.env.PORT),
+  TRUST_PROXY_HOPS: parseProxyHops(process.env.TRUST_PROXY_HOPS),
   MONGODB_URI: requireEnv('MONGODB_URI'),
   JWT_SECRET: jwtSecret,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? '7d',
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+  ...smtp,
 } as const;

@@ -42,6 +42,21 @@ export function signToken(
  * Throws JsonWebTokenError or TokenExpiredError on failure.
  */
 export function verifyToken(token: string): JwtPayload {
-  return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+  const decoded = jwt.verify(token, env.JWT_SECRET);
+  if (
+    typeof decoded !== 'object' ||
+    decoded === null ||
+    typeof decoded.userId !== 'string' ||
+    !/^[a-f\d]{24}$/i.test(decoded.userId) ||
+    typeof decoded.universityId !== 'string' ||
+    !/^[a-f\d]{24}$/i.test(decoded.universityId) ||
+    !Object.values(UserRole).includes(decoded.role)
+  ) {
+    throw new Error('Invalid token payload');
+  }
+  return {
+    userId: decoded.userId,
+    role: decoded.role,
+    universityId: decoded.universityId,
+  };
 }
-

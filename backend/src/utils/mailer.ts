@@ -5,42 +5,47 @@
  * Falls back to a no-op log in development when SMTP is not configured.
  */
 
-import nodemailer, { type SendMailOptions } from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
+import { env } from '../config/env';
 
-function createTransport() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+let transport: Transporter | undefined;
 
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    // Return a fake transport that just logs — useful in development
-    return {
-      sendMail: async (options: SendMailOptions) => {
-        console.log('[Mailer] SMTP not configured — email would have been sent:');
-        console.log(`  To: ${options.to}`);
-        console.log(`  Subject: ${options.subject}`);
-        console.log(`  Text: ${options.text}`);
-        return { messageId: 'dev-no-op' };
-      },
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
     };
-  }
-
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: parseInt(SMTP_PORT ?? '587', 10),
-    secure: parseInt(SMTP_PORT ?? '587', 10) === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    return entities[character];
   });
 }
 
-const transport = createTransport();
+function getTransport(): Transporter {
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
+    throw new Error('Email delivery is not configured. Set the SMTP environment variables.');
+  }
+
+  transport ??= nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_PORT === 465,
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+  });
+  return transport;
+}
 
 export async function sendOtpEmail(
   to: string,
   name: string,
   otp: string
 ): Promise<void> {
-  const from = process.env.EMAIL_FROM ?? '"QueueLess Campus" <no-reply@queuelesscampus.com>';
+  const from = env.EMAIL_FROM || env.SMTP_USER;
+  const safeName = escapeHtml(name);
 
-  await transport.sendMail({
+  await getTransport().sendMail({
     from,
     to,
     subject: 'QueueLess Campus — Verify your email',
@@ -48,7 +53,7 @@ export async function sendOtpEmail(
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
         <h2 style="color:#e85d04">QueueLess Campus</h2>
-        <p>Hi <strong>${name}</strong>,</p>
+        <p>Hi <strong>${safeName}</strong>,</p>
         <p>Your email verification code is:</p>
         <div style="font-size:2.5rem;font-weight:bold;letter-spacing:0.5rem;color:#e85d04;text-align:center;padding:1rem;background:#fff8f5;border-radius:8px;margin:1rem 0">
           ${otp}

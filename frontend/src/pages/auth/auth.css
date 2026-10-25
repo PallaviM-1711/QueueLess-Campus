@@ -1,0 +1,118 @@
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background: #fff8f3;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgb(26 26 26 / 8%);
+}
+
+.auth-brand {
+  margin-bottom: 1.75rem;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.auth-card h1 {
+  margin-bottom: 0.45rem;
+  font-size: clamp(1.7rem, 5vw, 2rem);
+  line-height: 1.2;
+}
+
+.auth-description {
+  margin-bottom: 1.5rem;
+  color: var(--color-muted);
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-field {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.auth-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #cfd2d8;
+  border-radius: 7px;
+  color: var(--color-text);
+  font: inherit;
+}
+
+.auth-field input:focus {
+  outline: 3px solid rgb(232 93 4 / 18%);
+  border-color: var(--color-primary);
+}
+
+.auth-button {
+  min-height: 46px;
+  margin-top: 0.25rem;
+  padding: 0.65rem 1rem;
+  border: 0;
+  border-radius: 7px;
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.auth-button:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.auth-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.auth-message {
+  padding: 0.75rem;
+  border-radius: 7px;
+  background: #fff0e8;
+  color: #8e3500;
+  font-size: 0.92rem;
+}
+
+.auth-message[role='alert'] {
+  background: #fff0f0;
+  color: #9b1c1c;
+}
+
+.auth-footer {
+  margin-top: 1.4rem;
+  color: var(--color-muted);
+  text-align: center;
+  font-size: 0.92rem;
+}
+
+.auth-back {
+  display: inline-block;
+  margin-top: 1.25rem;
+}
+
+.auth-link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}

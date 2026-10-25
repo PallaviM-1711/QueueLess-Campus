@@ -17,11 +17,18 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const statusCode = err.statusCode ?? 500;
+  const duplicateKey = 'code' in err && err.code === 11000;
+  const validationError = err.name === 'ValidationError' || err.name === 'CastError';
+  const statusCode = err.statusCode ?? (duplicateKey ? 409 : validationError ? 400 : 500);
+  const defaultMessage = duplicateKey
+    ? 'A record with this value already exists'
+    : validationError
+      ? 'The submitted data is invalid'
+      : 'An unexpected error occurred';
   const message =
     err.isOperational || process.env.NODE_ENV !== 'production'
       ? err.message
-      : 'An unexpected error occurred';
+      : defaultMessage;
 
   console.error(`[Error] ${statusCode} — ${err.message}`);
 
@@ -39,4 +46,3 @@ export function createError(message: string, statusCode: number): AppError {
   err.isOperational = true;
   return err;
 }
-
