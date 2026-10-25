@@ -19,7 +19,7 @@ import { Server as SocketIOServer } from 'socket.io';
 
 // Config — must be first so env vars are loaded before anything else
 import { env } from './config/env';
-import { connectDB } from './config/db';
+import { connectDB, disconnectDB } from './config/db';
 
 // Middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -72,6 +72,33 @@ const io = new SocketIOServer(httpServer, {
   },
 });
 
+let isShuttingDown = false;
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`[Server] ${signal} received; shutting down`);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      io.close((error) => (error ? reject(error) : resolve()));
+    });
+  } catch (err) {
+    console.error('[Fatal] Error closing the HTTP server:', err);
+    process.exitCode = 1;
+  }
+
+  try {
+    await disconnectDB();
+  } catch (err) {
+    console.error('[Fatal] Error disconnecting from MongoDB:', err);
+    process.exitCode = 1;
+  }
+}
+
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+
 // Basic Socket.IO connection log (real event handlers come in Phase 4)
 io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
@@ -99,4 +126,3 @@ bootstrap().catch((err) => {
 });
 
 export { io };
-

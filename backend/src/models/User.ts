@@ -95,13 +95,12 @@ userSchema.methods.comparePassword = async function (
 // ── Hide sensitive fields in JSON output ──────────────────────────────────────
 userSchema.set('toJSON', {
   transform(_doc, ret) {
-    delete ret.password;
-    delete ret.emailOtp;
-    delete ret.emailOtpExpiry;
-    delete ret.__v;
+    Reflect.deleteProperty(ret, 'password');
+    Reflect.deleteProperty(ret, 'emailOtp');
+    Reflect.deleteProperty(ret, 'emailOtpExpiry');
+    Reflect.deleteProperty(ret, '__v');
     return ret;
   },
 });
 
 export const User = model<IUser>('User', userSchema);
-

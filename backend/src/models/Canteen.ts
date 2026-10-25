@@ -47,10 +47,9 @@ const canteenSchema = new Schema<ICanteen>(
 
 canteenSchema.set('toJSON', {
   transform(_doc, ret) {
-    delete ret.__v;
+    Reflect.deleteProperty(ret, '__v');
     return ret;
   },
 });
 
 export const Canteen = model<ICanteen>('Canteen', canteenSchema);
-

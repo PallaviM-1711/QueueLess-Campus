@@ -42,7 +42,7 @@ pickupSlotSchema.index({ canteen: 1, date: 1, startTime: 1 }, { unique: true });
 
 pickupSlotSchema.set('toJSON', {
   transform(_doc, ret) {
-    delete ret.__v;
+    Reflect.deleteProperty(ret, '__v');
     return ret;
   },
 });

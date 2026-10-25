@@ -58,10 +58,9 @@ const menuItemSchema = new Schema<IMenuItem>(
 
 menuItemSchema.set('toJSON', {
   transform(_doc, ret) {
-    delete ret.__v;
+    Reflect.deleteProperty(ret, '__v');
     return ret;
   },
 });
 
 export const MenuItem = model<IMenuItem>('MenuItem', menuItemSchema);
-

@@ -98,11 +98,10 @@ const orderSchema = new Schema<IOrder>(
 
 orderSchema.set('toJSON', {
   transform(_doc, ret) {
-    delete ret.__v;
-    delete ret.razorpaySignature;
+    Reflect.deleteProperty(ret, '__v');
+    Reflect.deleteProperty(ret, 'razorpaySignature');
     return ret;
   },
 });
 
 export const Order = model<IOrder>('Order', orderSchema);
-

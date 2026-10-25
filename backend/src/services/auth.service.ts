@@ -23,6 +23,34 @@ export interface RegisterInput {
   password: string;
 }
 
+export interface AuthUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  university: string;
+  canteen?: string;
+  isEmailVerified: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function toAuthUser(user: IUser): AuthUser {
+  return {
+    _id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    university: user.university.toString(),
+    ...(user.canteen && { canteen: user.canteen.toString() }),
+    isEmailVerified: user.isEmailVerified,
+    isActive: user.isActive,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
 export async function registerStudent(input: RegisterInput): Promise<{ message: string }> {
   const { name, email, password } = input;
 
@@ -77,7 +105,7 @@ export async function registerStudent(input: RegisterInput): Promise<{ message: 
 export async function verifyEmail(
   email: string,
   otp: string
-): Promise<{ token: string; user: Partial<IUser> }> {
+): Promise<{ token: string; user: AuthUser }> {
   // Select fields hidden by default
   const user = await User.findOne({ email })
     .select('+emailOtp +emailOtpExpiry');
@@ -109,7 +137,7 @@ export async function verifyEmail(
     user.university as unknown as Types.ObjectId
   );
 
-  return { token, user: user.toJSON() };
+  return { token, user: toAuthUser(user) };
 }
 
 // ── Resend OTP ────────────────────────────────────────────────────────────────
@@ -142,7 +170,7 @@ export interface LoginInput {
 
 export async function loginUser(
   input: LoginInput
-): Promise<{ token: string; user: Partial<IUser> }> {
+): Promise<{ token: string; user: AuthUser }> {
   const { email, password } = input;
 
   // select password explicitly (it's select:false)
@@ -167,7 +195,7 @@ export async function loginUser(
     user.university as unknown as Types.ObjectId
   );
 
-  return { token, user: user.toJSON() };
+  return { token, user: toAuthUser(user) };
 }
 
 // ── Get Me ────────────────────────────────────────────────────────────────────
@@ -177,4 +205,3 @@ export async function getMe(userId: string): Promise<IUser> {
   if (!user) throw createError('User not found', 404);
   return user;
 }
-

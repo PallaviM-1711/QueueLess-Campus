@@ -5,7 +5,7 @@
  * Falls back to a no-op log in development when SMTP is not configured.
  */
 
-import nodemailer from 'nodemailer';
+import nodemailer, { type SendMailOptions } from 'nodemailer';
 
 function createTransport() {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
@@ -13,7 +13,7 @@ function createTransport() {
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
     // Return a fake transport that just logs — useful in development
     return {
-      sendMail: async (options: nodemailer.SendMailOptions) => {
+      sendMail: async (options: SendMailOptions) => {
         console.log('[Mailer] SMTP not configured — email would have been sent:');
         console.log(`  To: ${options.to}`);
         console.log(`  Subject: ${options.subject}`);
@@ -58,4 +58,3 @@ export async function sendOtpEmail(
     `,
   });
 }
-
