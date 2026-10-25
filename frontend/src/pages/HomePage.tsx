@@ -55,6 +55,7 @@ export default function HomePage() {
         {user ? (
           <>
             <span>Signed in as {user.name}</span>
+            <Link to="/orders">My orders</Link>
             <button
               onClick={() => {
                 clearAuthToken();

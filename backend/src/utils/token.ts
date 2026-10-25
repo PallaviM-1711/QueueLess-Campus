@@ -1,7 +1,7 @@
 /**
  * utils/token.ts
  * Generates a unique, URL-safe pickup token for orders.
- * Format: 3-char prefix + 5 random uppercase alphanumeric chars → e.g. "QLQ7X2K"
+ * Format: "QL" prefix + 8 random uppercase alphanumeric chars.
  */
 
 import crypto from 'crypto';
@@ -9,11 +9,10 @@ import crypto from 'crypto';
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0,O,1,I)
 
 export function generatePickupToken(): string {
-  const bytes = crypto.randomBytes(5);
+  const bytes = crypto.randomBytes(8);
   let token = 'QL'; // QueueLess prefix
   for (const byte of bytes) {
     token += CHARS[byte % CHARS.length];
   }
   return token;
 }
-

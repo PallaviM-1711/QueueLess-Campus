@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
+  addMenuItemToCart,
+  changeCartQuantity,
+  readCart,
+  saveCart,
+  type StoredCart,
+} from '../api/cartStorage';
+import {
   createMenuItem,
   deactivateMenuItem,
   getMenu,
   type MenuItem,
   updateMenuItem,
 } from '../api/menu.api';
+import { createPickupSlot } from '../api/ordering.api';
 import { getCurrentUser, type AuthUser } from '../api/auth.api';
 import './menu.css';
 
@@ -24,6 +32,14 @@ const emptyForm = {
   preparationTimeMinutes: '10',
 };
 
+const emptySlotForm = {
+  date: new Date().toISOString().slice(0, 10),
+  startTime: '12:00',
+  endTime: '12:15',
+  capacity: '20',
+};
+const TODAY_UTC = new Date().toISOString().slice(0, 10);
+
 export default function MenuPage() {
   const { canteenId = '' } = useParams();
   const [canteenName, setCanteenName] = useState('');
@@ -37,6 +53,8 @@ export default function MenuPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [cart, setCart] = useState<StoredCart | null>(() => readCart());
+  const [slotForm, setSlotForm] = useState(emptySlotForm);
 
   const canManage = Boolean(
     user &&
@@ -128,6 +146,42 @@ export default function MenuPage() {
     }
   }
 
+  function addToCart(item: MenuItem) {
+    if (cart && cart.canteenId !== canteenId &&
+        !window.confirm('Your cart has items from another canteen. Replace it with this item?')) {
+      return;
+    }
+    const updated = addMenuItemToCart(cart, canteenId, item);
+    setCart(updated);
+    saveCart(updated);
+    setMessage(`${item.name} added to your cart.`);
+    setError('');
+  }
+
+  function updateQuantity(menuItemId: string, delta: number) {
+    if (!cart) return;
+    const updated = changeCartQuantity(cart, menuItemId, delta);
+    setCart(updated);
+    saveCart(updated);
+  }
+
+  async function handleCreateSlot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await createPickupSlot(canteenId, {
+        ...slotForm,
+        capacity: Number(slotForm.capacity),
+      });
+      setMessage('Pickup slot created.');
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="menu-page">
       <header className="menu-header">
@@ -162,9 +216,10 @@ export default function MenuPage() {
       </section>
 
       {canManage && (
-        <section className="menu-manage">
-          <h2>Add menu item</h2>
-          <form onSubmit={handleCreate}>
+        <>
+          <section className="menu-manage">
+            <h2>Add menu item</h2>
+            <form onSubmit={handleCreate}>
             <label>Item name<input required maxLength={100} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label>Category<input required maxLength={50} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label>
             <label>Price (₹)<input required type="number" min="0" max="100000" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label>
@@ -173,7 +228,42 @@ export default function MenuPage() {
             <label className="menu-wide">Image URL<input type="url" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} /></label>
             <label className="menu-check"><input type="checkbox" checked={form.isVeg} onChange={(event) => setForm({ ...form, isVeg: event.target.checked })} />Vegetarian</label>
             <button disabled={busy} type="submit">{busy ? 'Saving…' : 'Add item'}</button>
-          </form>
+            </form>
+          </section>
+          <section className="menu-manage">
+            <h2>Create pickup slot</h2>
+            <form onSubmit={handleCreateSlot}>
+              <label>Date<input required type="date" min={TODAY_UTC} value={slotForm.date} onChange={(event) => setSlotForm({ ...slotForm, date: event.target.value })} /></label>
+              <label>Starts<input required type="time" value={slotForm.startTime} onChange={(event) => setSlotForm({ ...slotForm, startTime: event.target.value })} /></label>
+              <label>Ends<input required type="time" value={slotForm.endTime} onChange={(event) => setSlotForm({ ...slotForm, endTime: event.target.value })} /></label>
+              <label>Order capacity<input required type="number" min="1" max="500" value={slotForm.capacity} onChange={(event) => setSlotForm({ ...slotForm, capacity: event.target.value })} /></label>
+              <button disabled={busy} type="submit">{busy ? 'Saving…' : 'Create slot'}</button>
+            </form>
+          </section>
+        </>
+      )}
+
+      {cart?.canteenId === canteenId && cart.items.length > 0 && (
+        <section className="menu-cart" aria-labelledby="cart-title">
+          <div>
+            <h2 id="cart-title">Your cart ({cart.items.reduce((sum, line) => sum + line.quantity, 0)})</h2>
+            <ul>
+              {cart.items.map((line) => (
+                <li key={line.menuItemId}>
+                  <span>{line.name} — ₹{(line.price * line.quantity).toFixed(2)}</span>
+                  <span className="cart-quantity">
+                    <button aria-label={`Remove one ${line.name}`} onClick={() => updateQuantity(line.menuItemId, -1)} type="button">−</button>
+                    {line.quantity}
+                    <button aria-label={`Add one ${line.name}`} onClick={() => updateQuantity(line.menuItemId, 1)} type="button">+</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="cart-checkout">
+            <strong>Estimated total: ₹{cart.items.reduce((sum, line) => sum + line.price * line.quantity, 0).toFixed(2)}</strong>
+            <Link to={`/checkout/${canteenId}`}>Choose pickup slot</Link>
+          </div>
         </section>
       )}
 
@@ -194,6 +284,14 @@ export default function MenuPage() {
                 <strong>₹{item.price.toFixed(2)}</strong>
                 <span>{item.isAvailable ? 'Available' : 'Unavailable'}</span>
               </div>
+              <button
+                className="menu-add-button"
+                disabled={!item.isAvailable}
+                onClick={() => addToCart(item)}
+                type="button"
+              >
+                {item.isAvailable ? 'Add to cart' : 'Unavailable'}
+              </button>
               {canManage && (
                 <div className="menu-item-actions">
                   <button disabled={busy} onClick={() => void toggleAvailability(item)} type="button">

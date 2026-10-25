@@ -93,6 +93,9 @@ npm run dev
 The university domain must match the part after `@` in student email addresses.
 Use a domain your institution controls. Configure SMTP in `backend/.env` before
 registering students; signup will fail visibly if email delivery is unavailable.
+Order placement uses MongoDB transactions to reserve slot capacity and create an
+order atomically; configure MongoDB Atlas or another replica-set deployment.
+Pickup slot dates and times are currently interpreted as UTC.
 
 The backend starts on **http://localhost:5000**.  
 Health/readiness check: **http://localhost:5000/api/health** (returns HTTP 503
@@ -162,6 +165,12 @@ The frontend starts on **http://localhost:5173**.
 | `POST` | `/api/canteens/:canteenId/menu` | Add a menu item (assigned canteen staff/admin or university super admin) |
 | `PATCH` | `/api/canteens/:canteenId/menu/:itemId` | Update a menu item or its availability |
 | `DELETE` | `/api/canteens/:canteenId/menu/:itemId` | Deactivate a menu item without removing order history |
+| `GET` | `/api/canteens/:canteenId/pickup-slots?date=YYYY-MM-DD` | List future slots with remaining capacity |
+| `POST` | `/api/canteens/:canteenId/pickup-slots` | Create a capacity-limited pickup slot (canteen manager) |
+| `PATCH` | `/api/canteens/:canteenId/pickup-slots/:slotId` | Activate or deactivate a pickup slot (canteen manager) |
+| `POST` | `/api/orders` | Place a pay-at-pickup order; server checks prices, availability and slot capacity |
+| `GET` | `/api/orders/me` | List the authenticated student's orders |
+| `GET` | `/api/orders/:orderId` | Read an order owned by the authenticated student |
 
 ---
 
@@ -185,7 +194,7 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 |-------|--------|-------|
 | 1 | ✅ **Foundation** | App scaffolds, environment validation, MongoDB lifecycle, health/readiness check, setup docs |
 | 2 | ✅ **Implemented** | Student registration, college-domain validation, email verification, login, profile endpoint (requires MongoDB and SMTP for end-to-end use) |
-| 3 | ⏳ In progress | Menu catalog implemented; cart, checkout, and pickup-slot booking remain |
+| 3 | ✅ **Implemented** | Menu catalog, cart, checkout, pickup-slot capacity booking, pickup token and student order history |
 | 4 | ⏳ Pending | Socket.IO live order updates |
 | 5 | ⏳ Pending | Staff dashboard, menu management |
 | 6 | ⏳ Pending | Razorpay payment integration |
@@ -193,9 +202,10 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 8 | ⏳ Pending | QR-code pickup, deployment configs |
 
 Core Mongoose schemas and authentication service helpers are already present,
-and Phase 2 now wires the student authentication flows through API routes and
-the frontend. The menu catalog supports scoped staff management and student
-browsing; cart, checkout, booking, and order flows remain pending.
+and Phase 2 now wires student authentication. Phase 3 adds scoped menu
+management, student menu browsing, local cart, pickup-slot creation and
+capacity-enforced order placement with pickup tokens. Live staff order
+management and Socket.IO updates are separate later modules.
 
 ---
 
@@ -209,6 +219,8 @@ browsing; cart, checkout, booking, and order flows remain pending.
 - Auth request throttling is in-memory per backend process; production multi-instance deployments need a shared rate-limit store.
 - Set `TRUST_PROXY_HOPS` to the exact trusted proxy count for your host so per-IP throttling uses the client address.
 - Menu writes verify the user's current active account, role, university, and assigned canteen on the backend. Staff/canteen-admin accounts must be provisioned with their canteen assignment by an administrator; account management UI is not implemented yet.
+- Order prices are recalculated from active menu records on the server. Slot reservation and order creation run in a MongoDB transaction to prevent overbooking.
+- Checkout currently supports pay-at-pickup only; Razorpay is not implemented.
 - Razorpay payments verified server-side (Phase 6+).
 
 ---
