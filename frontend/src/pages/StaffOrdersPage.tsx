@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   getCanteenOrders,
   updateOrderStatus,
+  verifyPickupAtCanteen,
   type OrderRecord,
 } from '../api/ordering.api';
 import { connectOrderSocket } from '../api/orderSocket';
 import './orders.css';
 import './staff-orders.css';
+
+const PickupScanner = lazy(() => import('../components/PickupScanner'));
 
 const statusOptions: Record<string, string[]> = {
   pending: ['confirmed', 'cancelled'],
@@ -23,8 +26,12 @@ export default function StaffOrdersPage() {
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [filter, setFilter] = useState('all');
   const [busyOrder, setBusyOrder] = useState('');
+  const [pickupToken, setPickupToken] = useState('');
+  const [pickupBusy, setPickupBusy] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   const refreshOrders = useCallback(async () => {
     try {
@@ -78,6 +85,30 @@ export default function StaffOrdersPage() {
     }
   }
 
+  async function verifyPickup(token: string) {
+    setPickupBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const order = await verifyPickupAtCanteen(canteenId, token.trim().toUpperCase());
+      setMessage(`Order ${order.pickupToken} marked as picked up.`);
+      setPickupToken('');
+      try {
+        await refreshOrders();
+      } catch (reason) {
+        setError(
+          `Pickup was verified, but the queue could not refresh: ${
+            reason instanceof Error ? reason.message : 'Unknown error'
+          }`
+        );
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not verify pickup token');
+    } finally {
+      setPickupBusy(false);
+    }
+  }
+
   return (
     <main className="order-page">
       <Link to={`/canteens/${canteenId}/menu`}>← Canteen menu</Link>
@@ -104,6 +135,56 @@ export default function StaffOrdersPage() {
             </select>
           </label>
         </header>
+        <section className="pickup-verification">
+          <h2>Verify pickup</h2>
+          <p>Scan the QR code shown on a ready order or enter its pickup token.</p>
+          <button
+            disabled={pickupBusy}
+            onClick={() => {
+              setError('');
+              setShowScanner((visible) => !visible);
+            }}
+            type="button"
+          >
+            {showScanner ? 'Close scanner' : 'Scan pickup QR'}
+          </button>
+          {showScanner && (
+            <Suspense fallback={<p>Loading camera scanner…</p>}>
+              <PickupScanner
+                onError={setError}
+                onToken={(token) => {
+                  setPickupToken(token.toUpperCase());
+                  setShowScanner(false);
+                  void verifyPickup(token);
+                }}
+              />
+            </Suspense>
+          )}
+          <form
+            className="pickup-token-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void verifyPickup(pickupToken);
+            }}
+          >
+            <label>
+              Pickup token
+              <input
+                autoCapitalize="characters"
+                autoComplete="off"
+                maxLength={10}
+                minLength={10}
+                onChange={(event) => setPickupToken(event.target.value.toUpperCase())}
+                required
+                value={pickupToken}
+              />
+            </label>
+            <button disabled={pickupBusy} type="submit">
+              {pickupBusy ? 'Verifying…' : 'Confirm pickup'}
+            </button>
+          </form>
+        </section>
+        {message && <p className="order-hint" role="status">{message}</p>}
         {error && <p className="order-error" role="alert">{error}</p>}
         {loading ? (
           <p>Loading orders…</p>

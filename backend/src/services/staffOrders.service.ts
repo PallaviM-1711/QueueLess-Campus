@@ -175,3 +175,15 @@ export async function updateCanteenOrderStatus(
     .populate('pickupSlot', 'date startTime endTime')
     .orFail();
 }
+
+export async function markOrderPickedUpByToken(canteenId: string, pickupToken: string) {
+  if (!Types.ObjectId.isValid(canteenId)) {
+    throw createError('Invalid canteen identifier', 400);
+  }
+  const order = await Order.findOne({
+    canteen: canteenId,
+    pickupToken: pickupToken.toUpperCase(),
+  }).select('_id');
+  if (!order) throw createError('Pickup token was not found for this canteen', 404);
+  return updateCanteenOrderStatus(canteenId, order._id.toString(), OrderStatus.PICKED_UP);
+}

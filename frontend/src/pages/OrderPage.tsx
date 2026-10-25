@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { createRazorpayOrder, verifyRazorpayCheckout } from '../api/razorpay.api';
 import { loadRazorpayCheckout, openRazorpayCheckout } from '../api/razorpayCheckout';
 import { getOrder, type OrderRecord } from '../api/ordering.api';
@@ -117,6 +118,17 @@ export default function OrderPage() {
             <p>Pickup token</p>
             <p className="pickup-token">{order.pickupToken}</p>
             <p>Show this token to canteen staff when you collect your order.</p>
+            {order.status === 'ready' && (
+              <div className="pickup-qr">
+                <QRCodeSVG
+                  includeMargin
+                  level="M"
+                  size={200}
+                  value={order.pickupToken}
+                />
+                <p>Show this QR code to staff to confirm pickup.</p>
+              </div>
+            )}
             <dl className="order-details">
               <div><dt>Canteen</dt><dd>{order.canteen.name}</dd></div>
               <div>

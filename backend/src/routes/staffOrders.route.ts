@@ -6,6 +6,7 @@ import { createError } from '../middleware/errorHandler';
 import { OrderStatus, UserRole } from '../types/enums';
 import {
   listCanteenOrders,
+  markOrderPickedUpByToken,
   updateCanteenOrderStatus,
 } from '../services/staffOrders.service';
 import { getSocketServer } from '../realtime/socket';
@@ -35,6 +36,41 @@ function validateRequest(req: Request, _res: Response, next: NextFunction): void
 }
 
 const staffRoles = [UserRole.STAFF, UserRole.CANTEEN_ADMIN, UserRole.SUPER_ADMIN];
+
+router.post(
+  '/:canteenId/orders/verify-pickup',
+  authenticate,
+  authorize(...staffRoles),
+  param('canteenId').isMongoId().withMessage('Invalid canteen identifier'),
+  body('pickupToken')
+    .isString()
+    .trim()
+    .matches(/^QL[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/i)
+    .withMessage('Enter a valid QueueLess pickup token')
+    .toUpperCase(),
+  validateRequest,
+  authorizeCanteenManagement,
+  asyncHandler(async (req, res) => {
+    const { pickupToken } = matchedData<{ pickupToken: string }>(
+      req,
+      { locations: ['body'] }
+    );
+    const canteenId = routeParam(req, 'canteenId');
+    const order = await markOrderPickedUpByToken(canteenId, pickupToken);
+    const event = {
+      orderId: order._id.toString(),
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      updatedAt: order.updatedAt,
+    };
+    getSocketServer()
+      .to(`order:${event.orderId}`)
+      .to(`user:${order.student._id.toString()}`)
+      .to(`canteen:${canteenId}`)
+      .emit('order:changed', event);
+    res.json({ success: true, order });
+  })
+);
 
 router.get(
   '/:canteenId/orders',

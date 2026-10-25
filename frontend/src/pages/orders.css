@@ -109,6 +109,19 @@
   letter-spacing: 0.2rem;
 }
 
+.pickup-qr {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.pickup-qr svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .order-details {
   display: grid;
   gap: 0.75rem;

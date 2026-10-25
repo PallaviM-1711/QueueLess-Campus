@@ -13,6 +13,7 @@ QueueLess Campus/
 ├── frontend/                 # React + Vite + TypeScript (Port 5173)
 │   └── src/
 │       ├── api/              # Axios client, payment and other API wrappers
+│       ├── components/       # Shared QR pickup scanner
 │       ├── pages/            # Authentication, menu, orders and admin screens
 │       └── routes/           # React Router configuration
 └── backend/                  # Node.js + Express + TypeScript (Port 5000)
@@ -21,15 +22,14 @@ QueueLess Campus/
         ├── middleware/       # Authentication and error handling
         ├── models/           # Mongoose schemas
         ├── realtime/         # Socket.IO authentication and room subscriptions
-        ├── routes/           # Health, auth, menu, booking, order and payment endpoints
-        ├── services/         # Authentication, ordering, staff-order and payment logic
+        ├── routes/           # Health, auth, admin, menu, booking, order and payment endpoints
+        ├── services/         # Authentication, ordering, analytics and payment logic
         ├── types/            # Shared backend enums and types
         └── utils/            # JWT, OTP, email, and token helpers
 ```
 
-Future feature work can add backend `controllers/` and request validators, plus
-frontend `components/`, `features/`, and `types/` when needed. These folders are
-not scaffolded before they have a concrete use.
+Future feature work can add backend `controllers/` and request validators,
+plus frontend `features/` and `types/` as needed.
 
 ---
 
@@ -204,6 +204,7 @@ The frontend starts on **http://localhost:5173**.
 | `POST` | `/api/payments/razorpay/webhook` | Process signed `payment.authorized` and `payment.captured` events |
 | `GET` | `/api/canteens/:canteenId/orders` | List a canteen's orders (assigned staff/admin or university super admin) |
 | `PATCH` | `/api/canteens/:canteenId/orders/:orderId/status` | Advance an order through allowed staff statuses |
+| `POST` | `/api/canteens/:canteenId/orders/verify-pickup` | Verify a ready order's QR/token and mark it picked up (assigned staff/admin) |
 | `GET` | `/api/admin/canteens` | List university canteens (super admin only) |
 | `POST` | `/api/admin/canteens` | Create a university canteen (super admin only) |
 | `PATCH` | `/api/admin/canteens/:canteenId` | Update canteen details or open status (super admin only) |
@@ -245,7 +246,8 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 5 | ✅ **Implemented** | Super-admin canteen management, staff invitations, assignment and account activation |
 | 6 | ✅ **Implemented** | Pay at pickup and optional Razorpay Checkout with server-side capture, signature verification and webhooks |
 | 7 | ✅ **Implemented** | University-scoped super-admin analytics for order activity, paid revenue, popular items and preparation times |
-| 8 | ⏳ Pending | QR-code pickup, deployment configs |
+| 8 | ✅ **Implemented** | Student pickup QR codes and canteen-scoped staff verification; manual token entry remains available |
+| 9 | ⏳ Pending | Vercel/Render deployment configuration |
 
 Core Mongoose schemas and authentication service helpers are already present.
 Phase 2 wires student authentication. Phase 3 adds scoped menu management,
@@ -257,6 +259,8 @@ Phase 6 adds optional Razorpay payments; gateway keys and webhook secrets must
 be configured by the project owner before online payments are enabled. Phase 7
 adds university-scoped order, revenue, popular-item and preparation-time
 analytics to the super-admin dashboard.
+Phase 8 adds a QR code once an order is ready and a staff scanner/manual token
+flow that verifies the canteen and order state on the backend.
 
 ---
 
@@ -278,6 +282,7 @@ analytics to the super-admin dashboard.
 - Unpaid online orders keep their pickup reservation until staff review. Staff may cancel before a Razorpay order is created; after Checkout has been initialized, cancellation is blocked to avoid releasing capacity while a payment can still complete. Refund workflows are not implemented.
 - Razorpay Checkout is loaded from Razorpay's hosted script. Test keys should be used before any live configuration.
 - Super-admin analytics are scoped to canteens in the administrator's university. Revenue includes non-cancelled orders marked paid; average preparation time is measured from staff marking an order as preparing until it is ready. Orders created before timestamp tracking was added are excluded from that average.
+- Pickup QR codes contain only the existing pickup token. Staff authentication, active account status, canteen assignment, and the ready-to-picked-up transition are verified by the backend. Camera scanning requires browser camera permission and a secure context (HTTPS or localhost); staff can enter the token manually if camera access is unavailable.
 
 ---
 
@@ -286,4 +291,4 @@ analytics to the super-admin dashboard.
 - **Frontend** → Vercel (set `VITE_API_URL` to the deployed backend URL)
 - **Backend** → Render (set all env vars in the Render dashboard)
 
-> Deployment guides will be added in Phase 8.
+> Deployment guides will be added in Phase 9.

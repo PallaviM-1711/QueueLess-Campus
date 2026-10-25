@@ -101,3 +101,14 @@ export async function updateOrderStatus(
   );
   return data.order;
 }
+
+export async function verifyPickupAtCanteen(
+  canteenId: string,
+  pickupToken: string
+): Promise<OrderRecord> {
+  const { data } = await axiosClient.post<OrderResponse>(
+    `/api/canteens/${canteenId}/orders/verify-pickup`,
+    { pickupToken }
+  );
+  return data.order;
+}
