@@ -42,6 +42,17 @@ export async function resendVerificationCode(email: string): Promise<MessageResp
   return data;
 }
 
+export async function acceptStaffInvitation(
+  token: string,
+  password: string
+): Promise<string> {
+  const { data } = await axiosClient.post<MessageResponse>(
+    '/api/auth/accept-invitation',
+    { token, password }
+  );
+  return data.message;
+}
+
 export async function login(input: {
   email: string;
   password: string;

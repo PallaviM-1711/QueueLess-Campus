@@ -25,6 +25,8 @@ export interface IUser extends Document {
   emailOtp?: string;
   emailOtpExpiry?: Date;
   emailOtpAttempts: number;
+  staffInviteTokenHash?: string;
+  staffInviteExpiry?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -74,6 +76,8 @@ const userSchema = new Schema<IUser>(
     emailOtp: { type: String, select: false },
     emailOtpExpiry: { type: Date, select: false },
     emailOtpAttempts: { type: Number, default: 0, select: false },
+    staffInviteTokenHash: { type: String, select: false },
+    staffInviteExpiry: { type: Date, select: false },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -100,6 +104,8 @@ userSchema.set('toJSON', {
     Reflect.deleteProperty(ret, 'password');
     Reflect.deleteProperty(ret, 'emailOtp');
     Reflect.deleteProperty(ret, 'emailOtpExpiry');
+    Reflect.deleteProperty(ret, 'staffInviteTokenHash');
+    Reflect.deleteProperty(ret, 'staffInviteExpiry');
     Reflect.deleteProperty(ret, '__v');
     return ret;
   },

@@ -63,3 +63,43 @@ export async function sendOtpEmail(
     `,
   });
 }
+
+export async function sendStaffInvitationEmail(
+  to: string,
+  name: string,
+  roleName: string,
+  canteenName: string,
+  token: string
+): Promise<void> {
+  const from = env.EMAIL_FROM || env.SMTP_USER;
+  const safeName = escapeHtml(name);
+  const safeRole = escapeHtml(roleName);
+  const safeCanteen = escapeHtml(canteenName);
+  const invitationUrl = new URL('/accept-invitation', env.CLIENT_ORIGIN);
+  invitationUrl.hash = token;
+
+  await getTransport().sendMail({
+    from,
+    to,
+    subject: 'QueueLess Campus — Staff account invitation',
+    text: [
+      `Hi ${name},`,
+      '',
+      `You have been invited as ${roleName} for ${canteenName}.`,
+      `Accept the invitation and set your password within 24 hours: ${invitationUrl}`,
+      '',
+      'If you were not expecting this invitation, you can ignore this email.',
+      '',
+      '— QueueLess Campus Team',
+    ].join('\n'),
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+        <h2 style="color:#e85d04">QueueLess Campus</h2>
+        <p>Hi <strong>${safeName}</strong>,</p>
+        <p>You have been invited as <strong>${safeRole}</strong> for <strong>${safeCanteen}</strong>.</p>
+        <p><a href="${escapeHtml(invitationUrl.toString())}">Accept invitation and set your password</a></p>
+        <p style="color:#6b7280;font-size:0.9rem">This link expires in 24 hours. If you were not expecting this invitation, ignore this email.</p>
+      </div>
+    `,
+  });
+}

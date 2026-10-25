@@ -32,6 +32,7 @@ import menuRouter from './routes/menu.route';
 import bookingRouter from './routes/booking.route';
 import ordersRouter from './routes/orders.route';
 import staffOrdersRouter from './routes/staffOrders.route';
+import adminRouter from './routes/admin.route';
 import { configureOrderSocket } from './realtime/orderEvents';
 
 // ── Express app setup ────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ app.use('/api/canteens', menuRouter);
 app.use('/api/canteens', bookingRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/canteens', staffOrdersRouter);
+app.use('/api/admin', adminRouter);
 
 // Placeholder index — gives a clean response instead of 404 on GET /
 app.get('/', (_req, res) => {

@@ -9,6 +9,7 @@ import {
   registerStudent,
   resendOtp,
   verifyEmail,
+  acceptStaffInvitation,
 } from '../services/auth.service';
 
 const router = Router();
@@ -112,6 +113,27 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email } = matchedData<EmailBody>(req, { locations: ['body'] });
     const result = await resendOtp(email);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.post(
+  '/accept-invitation',
+  authRateLimit(10, 15 * 60 * 1000),
+  body('token')
+    .isString()
+    .withMessage('Invitation token is required')
+    .bail()
+    .isLength({ min: 43, max: 43 })
+    .withMessage('Invitation token is invalid'),
+  passwordValidation,
+  validateRequest,
+  asyncHandler(async (req, res) => {
+    const { token, password } = matchedData<{ token: string; password: string }>(
+      req,
+      { locations: ['body'] }
+    );
+    const result = await acceptStaffInvitation(token, password);
     res.json({ success: true, ...result });
   })
 );

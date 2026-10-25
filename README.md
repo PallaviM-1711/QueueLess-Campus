@@ -13,7 +13,7 @@ QueueLess Campus/
 ├── frontend/                 # React + Vite + TypeScript (Port 5173)
 │   └── src/
 │       ├── api/              # Axios client and API wrappers
-│       ├── pages/            # Route-level UI (auth screens are placeholders)
+│       ├── pages/            # Authentication, menu, orders and admin screens
 │       └── routes/           # React Router configuration
 └── backend/                  # Node.js + Express + TypeScript (Port 5000)
     └── src/
@@ -88,12 +88,30 @@ cd backend
 npm ci
 npm run build
 npm run university:create -- --name "Your University" --email-domain college.edu
-npm run dev
 ```
 
 The university domain must match the part after `@` in student email addresses.
 Use a domain your institution controls. Configure SMTP in `backend/.env` before
-registering students; signup will fail visibly if email delivery is unavailable.
+registering students or inviting staff; email-dependent actions fail visibly if
+delivery is unavailable. The university-creation command prints its record ID.
+After building the backend, bootstrap that university's first super admin with:
+
+```bash
+npm run super-admin:create -- --name "University Admin" --email admin@college.edu --university-id YOUR_UNIVERSITY_ID
+```
+
+Then start the backend:
+
+```bash
+npm run dev
+```
+
+The CLI prompts for the password without echoing it, requires the email domain
+to match the university, and allows only one bootstrap super admin per
+university. Sign in with that account and use **University admin** to create
+canteens and send one-time staff invitations. Invitation links expire after
+24 hours; staff set their own password when accepting.
+
 Order placement uses MongoDB transactions to reserve slot capacity and create an
 order atomically; configure MongoDB Atlas or another replica-set deployment.
 Pickup slot dates and times are currently interpreted as UTC.
@@ -138,6 +156,7 @@ The frontend starts on **http://localhost:5173**.
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled production build |
 | `npm run university:create -- --name "University" --email-domain college.edu` | Add an approved college email domain |
+| `npm run super-admin:create -- --name "Admin" --email admin@college.edu --university-id YOUR_UNIVERSITY_ID` | Bootstrap the university's first super-admin account |
 | `npm run type-check` | Type-check without emitting |
 
 ### Frontend (`/frontend`)
@@ -159,6 +178,7 @@ The frontend starts on **http://localhost:5173**.
 | `POST` | `/api/auth/register` | Register a student for an approved university email domain (SMTP required) |
 | `POST` | `/api/auth/verify-email` | Verify the email code and issue a JWT |
 | `POST` | `/api/auth/resend-otp` | Resend a verification code |
+| `POST` | `/api/auth/accept-invitation` | Accept a staff invitation and set a password |
 | `POST` | `/api/auth/login` | Log in a verified student |
 | `GET` | `/api/auth/me` | Return the authenticated user's profile |
 | `GET` | `/api/canteens` | List active canteens at the authenticated user's university |
@@ -174,6 +194,13 @@ The frontend starts on **http://localhost:5173**.
 | `GET` | `/api/orders/:orderId` | Read an order owned by the authenticated student |
 | `GET` | `/api/canteens/:canteenId/orders` | List a canteen's orders (assigned staff/admin or university super admin) |
 | `PATCH` | `/api/canteens/:canteenId/orders/:orderId/status` | Advance an order through allowed staff statuses |
+| `GET` | `/api/admin/canteens` | List university canteens (super admin only) |
+| `POST` | `/api/admin/canteens` | Create a university canteen (super admin only) |
+| `PATCH` | `/api/admin/canteens/:canteenId` | Update canteen details or open status (super admin only) |
+| `GET` | `/api/admin/staff` | List university staff accounts (super admin only) |
+| `POST` | `/api/admin/staff` | Invite assigned canteen staff/admin by university email |
+| `POST` | `/api/admin/staff/:staffId/resend-invitation` | Resend an unaccepted staff invitation |
+| `PATCH` | `/api/admin/staff/:staffId` | Reassign or activate/deactivate a staff account |
 
 Authenticated Socket.IO clients can subscribe to `order:subscribe` with an
 `orderId` or, for authorized managers, `canteen:subscribe` with a `canteenId`.
@@ -204,7 +231,7 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 2 | ✅ **Implemented** | Student registration, college-domain validation, email verification, login, profile endpoint (requires MongoDB and SMTP for end-to-end use) |
 | 3 | ✅ **Implemented** | Menu catalog, cart, checkout, pickup-slot capacity booking, pickup token and student order history |
 | 4 | ✅ **Implemented** | Staff order queue, validated order status changes and live Socket.IO updates |
-| 5 | ⏳ Pending | Staff account and canteen provisioning |
+| 5 | ✅ **Implemented** | Super-admin canteen management, staff invitations, assignment and account activation |
 | 6 | ⏳ Pending | Razorpay payment integration |
 | 7 | ⏳ Pending | Super-admin dashboard, analytics |
 | 8 | ⏳ Pending | QR-code pickup, deployment configs |
@@ -213,9 +240,8 @@ Core Mongoose schemas and authentication service helpers are already present.
 Phase 2 wires student authentication. Phase 3 adds scoped menu management,
 student menu browsing, local cart, pickup-slot creation and capacity-enforced
 order placement with pickup tokens. Phase 4 provides the staff order queue and
-authorized real-time order status updates. Staff accounts and canteen
-assignments still require database provisioning; a self-service administration
-screen has not been implemented.
+authorized real-time order status updates. Phase 5 adds scoped university
+administration for canteens and staff, including one-time email invitations.
 
 ---
 
@@ -232,6 +258,7 @@ screen has not been implemented.
 - Order prices are recalculated from active menu records on the server. Slot reservation and order creation run in a MongoDB transaction to prevent overbooking.
 - Staff order updates enforce canteen assignment and valid status transitions on the server; cancellation releases the reserved slot in a transaction.
 - Socket.IO connections authenticate with the same JWT and authorize order/canteen room subscriptions before joining. Keep the frontend API origin and backend CORS origin configured for the deployed domains.
+- Public registration and email-code verification can only create/verify student accounts. Staff roles are provisioned by a database-verified super admin; invitation tokens are random, hashed at rest, single-use and expire after 24 hours. Invitation links carry the token in the URL fragment, which is removed from browser history after the page reads it. Staff accounts are deactivated/reassigned server-side and their live sockets are disconnected after changes.
 - Checkout currently supports pay-at-pickup only; Razorpay is not implemented.
 - Razorpay payments verified server-side (Phase 6+).
 

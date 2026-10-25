@@ -55,6 +55,7 @@ export default function HomePage() {
         {user ? (
           <>
             <span>Signed in as {user.name}</span>
+            {user.role === 'super_admin' && <Link to="/admin">University admin</Link>}
             <Link to="/orders">My orders</Link>
             <button
               onClick={() => {

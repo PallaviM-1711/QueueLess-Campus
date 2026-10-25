@@ -15,6 +15,8 @@ import CheckoutPage from '../pages/CheckoutPage';
 import OrderPage from '../pages/OrderPage';
 import OrdersPage from '../pages/OrdersPage';
 import StaffOrdersPage from '../pages/StaffOrdersPage';
+import AdminPage from '../pages/AdminPage';
+import AcceptInvitationPage from '../pages/AcceptInvitationPage';
 import NotFoundPage from '../pages/NotFoundPage';
 
 export default function AppRouter() {
@@ -25,6 +27,8 @@ export default function AppRouter() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/canteens/:canteenId/menu" element={<MenuPage />} />
         <Route path="/checkout/:canteenId" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />

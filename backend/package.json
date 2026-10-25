@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "university:create": "node dist/scripts/createUniversity.js",
+    "super-admin:create": "node dist/scripts/createSuperAdmin.js",
     "type-check": "tsc --noEmit"
   },
   "keywords": [

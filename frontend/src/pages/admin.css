@@ -1,0 +1,129 @@
+.admin-page {
+  width: min(960px, calc(100% - 2rem));
+  margin: 2rem auto;
+  color: #222;
+}
+
+.admin-header {
+  margin-bottom: 1.5rem;
+}
+
+.admin-header a {
+  color: #9a3412;
+}
+
+.admin-header h1 {
+  margin: 0.75rem 0 0.25rem;
+}
+
+.admin-header p,
+.admin-canteen-list span,
+.admin-staff-list span {
+  color: #666;
+}
+
+.admin-notice {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.admin-error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.admin-card {
+  margin: 1rem 0;
+  padding: 1.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-card h2 {
+  margin-top: 0;
+}
+
+.admin-card h3 {
+  margin: 1.5rem 0 0.75rem;
+}
+
+.admin-canteen-list,
+.admin-staff-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-canteen-list li,
+.admin-staff-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.admin-canteen-list li > div,
+.admin-staff-list li > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.admin-form label,
+.admin-staff-list label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.admin-form input,
+.admin-form select,
+.admin-staff-list select {
+  min-height: 40px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.admin-form button,
+.admin-card button {
+  min-height: 40px;
+  padding: 0.5rem 0.85rem;
+  border: 0;
+  border-radius: 6px;
+  background: #c2410c;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.admin-form button:disabled,
+.admin-card button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@media (max-width: 700px) {
+  .admin-staff-list li,
+  .admin-canteen-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-form {
+    grid-template-columns: 1fr;
+  }
+}

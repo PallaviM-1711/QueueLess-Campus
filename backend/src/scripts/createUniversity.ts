@@ -25,7 +25,9 @@ async function main(): Promise<void> {
   await connectDB();
   try {
     const university = await University.create(input);
-    console.log(`[University] Created ${university.name} (${university.emailDomain})`);
+    console.log(
+      `[University] Created ${university.name} (${university.emailDomain}) [${university._id.toString()}]`
+    );
   } finally {
     await disconnectDB();
   }
