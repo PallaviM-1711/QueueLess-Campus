@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyOrders, type OrderRecord } from '../api/ordering.api';
+import { connectOrderSocket } from '../api/orderSocket';
 import './orders.css';
 
 export default function OrdersPage() {
@@ -18,6 +19,19 @@ export default function OrdersPage() {
       });
     return () => {
       mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const socket = connectOrderSocket();
+    if (!socket) return;
+    socket.on('order:changed', () => {
+      getMyOrders()
+        .then(setOrders)
+        .catch((reason: Error) => setError(reason.message));
+    });
+    return () => {
+      socket.disconnect();
     };
   }, []);
 

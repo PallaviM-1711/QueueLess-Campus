@@ -186,6 +186,7 @@ export default function MenuPage() {
     <main className="menu-page">
       <header className="menu-header">
         <Link to="/" className="menu-back">← Canteens</Link>
+        {canManage && <Link to={`/staff/canteens/${canteenId}/orders`}>Open order queue</Link>}
         <h1>{canteenName || 'Canteen menu'}</h1>
         <p>Browse the current menu and availability.</p>
       </header>

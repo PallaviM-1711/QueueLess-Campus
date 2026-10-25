@@ -14,6 +14,7 @@ import MenuPage from '../pages/MenuPage';
 import CheckoutPage from '../pages/CheckoutPage';
 import OrderPage from '../pages/OrderPage';
 import OrdersPage from '../pages/OrdersPage';
+import StaffOrdersPage from '../pages/StaffOrdersPage';
 import NotFoundPage from '../pages/NotFoundPage';
 
 export default function AppRouter() {
@@ -28,6 +29,7 @@ export default function AppRouter() {
         <Route path="/checkout/:canteenId" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/orders/:orderId" element={<OrderPage />} />
+        <Route path="/staff/canteens/:canteenId/orders" element={<StaffOrdersPage />} />
 
         {/* 404 fallback */}
         <Route path="*" element={<NotFoundPage />} />

@@ -28,6 +28,7 @@ export interface OrderRecord {
   canteen: { _id: string; name: string; location?: string };
   pickupSlot: { _id: string; date: string; startTime: string; endTime: string };
   notes?: string;
+  student?: { _id?: string; name: string };
 }
 
 interface OrderResponse {
@@ -74,4 +75,27 @@ export async function getMyOrders(): Promise<OrderRecord[]> {
     '/api/orders/me'
   );
   return data.orders;
+}
+
+export async function getCanteenOrders(
+  canteenId: string,
+  status?: string
+): Promise<OrderRecord[]> {
+  const { data } = await axiosClient.get<{ success: boolean; orders: OrderRecord[] }>(
+    `/api/canteens/${canteenId}/orders`,
+    { params: status ? { status } : {} }
+  );
+  return data.orders;
+}
+
+export async function updateOrderStatus(
+  canteenId: string,
+  orderId: string,
+  status: string
+): Promise<OrderRecord> {
+  const { data } = await axiosClient.patch<OrderResponse>(
+    `/api/canteens/${canteenId}/orders/${orderId}/status`,
+    { status }
+  );
+  return data.order;
 }

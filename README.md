@@ -20,8 +20,9 @@ QueueLess Campus/
         ├── config/           # Environment and MongoDB connection
         ├── middleware/       # Authentication and error handling
         ├── models/           # Mongoose schemas
-        ├── routes/           # Health endpoint
-        ├── services/         # Authentication business logic
+        ├── realtime/         # Socket.IO authentication and room subscriptions
+        ├── routes/           # Health, auth, menu, booking and order endpoints
+        ├── services/         # Authentication, ordering and staff-order logic
         ├── types/            # Shared backend enums and types
         └── utils/            # JWT, OTP, email, and token helpers
 ```
@@ -171,6 +172,13 @@ The frontend starts on **http://localhost:5173**.
 | `POST` | `/api/orders` | Place a pay-at-pickup order; server checks prices, availability and slot capacity |
 | `GET` | `/api/orders/me` | List the authenticated student's orders |
 | `GET` | `/api/orders/:orderId` | Read an order owned by the authenticated student |
+| `GET` | `/api/canteens/:canteenId/orders` | List a canteen's orders (assigned staff/admin or university super admin) |
+| `PATCH` | `/api/canteens/:canteenId/orders/:orderId/status` | Advance an order through allowed staff statuses |
+
+Authenticated Socket.IO clients can subscribe to `order:subscribe` with an
+`orderId` or, for authorized managers, `canteen:subscribe` with a `canteenId`.
+The server checks the account and ownership/assignment before joining rooms.
+`order:changed` events are sent after an order status transaction succeeds.
 
 ---
 
@@ -195,17 +203,19 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 1 | ✅ **Foundation** | App scaffolds, environment validation, MongoDB lifecycle, health/readiness check, setup docs |
 | 2 | ✅ **Implemented** | Student registration, college-domain validation, email verification, login, profile endpoint (requires MongoDB and SMTP for end-to-end use) |
 | 3 | ✅ **Implemented** | Menu catalog, cart, checkout, pickup-slot capacity booking, pickup token and student order history |
-| 4 | ⏳ Pending | Socket.IO live order updates |
-| 5 | ⏳ Pending | Staff dashboard, menu management |
+| 4 | ✅ **Implemented** | Staff order queue, validated order status changes and live Socket.IO updates |
+| 5 | ⏳ Pending | Staff account and canteen provisioning |
 | 6 | ⏳ Pending | Razorpay payment integration |
 | 7 | ⏳ Pending | Super-admin dashboard, analytics |
 | 8 | ⏳ Pending | QR-code pickup, deployment configs |
 
-Core Mongoose schemas and authentication service helpers are already present,
-and Phase 2 now wires student authentication. Phase 3 adds scoped menu
-management, student menu browsing, local cart, pickup-slot creation and
-capacity-enforced order placement with pickup tokens. Live staff order
-management and Socket.IO updates are separate later modules.
+Core Mongoose schemas and authentication service helpers are already present.
+Phase 2 wires student authentication. Phase 3 adds scoped menu management,
+student menu browsing, local cart, pickup-slot creation and capacity-enforced
+order placement with pickup tokens. Phase 4 provides the staff order queue and
+authorized real-time order status updates. Staff accounts and canteen
+assignments still require database provisioning; a self-service administration
+screen has not been implemented.
 
 ---
 
@@ -220,6 +230,8 @@ management and Socket.IO updates are separate later modules.
 - Set `TRUST_PROXY_HOPS` to the exact trusted proxy count for your host so per-IP throttling uses the client address.
 - Menu writes verify the user's current active account, role, university, and assigned canteen on the backend. Staff/canteen-admin accounts must be provisioned with their canteen assignment by an administrator; account management UI is not implemented yet.
 - Order prices are recalculated from active menu records on the server. Slot reservation and order creation run in a MongoDB transaction to prevent overbooking.
+- Staff order updates enforce canteen assignment and valid status transitions on the server; cancellation releases the reserved slot in a transaction.
+- Socket.IO connections authenticate with the same JWT and authorize order/canteen room subscriptions before joining. Keep the frontend API origin and backend CORS origin configured for the deployed domains.
 - Checkout currently supports pay-at-pickup only; Razorpay is not implemented.
 - Razorpay payments verified server-side (Phase 6+).
 
