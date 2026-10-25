@@ -247,7 +247,7 @@ See [`frontend/.env.example`](./frontend/.env.example). All variables must be pr
 | 6 | ✅ **Implemented** | Pay at pickup and optional Razorpay Checkout with server-side capture, signature verification and webhooks |
 | 7 | ✅ **Implemented** | University-scoped super-admin analytics for order activity, paid revenue, popular items and preparation times |
 | 8 | ✅ **Implemented** | Student pickup QR codes and canteen-scoped staff verification; manual token entry remains available |
-| 9 | ⏳ Pending | Vercel/Render deployment configuration |
+| 9 | ✅ **Configured** | Vercel SPA routing and a free-tier Render API blueprint; hosting accounts and credentials remain operator-managed |
 
 Core Mongoose schemas and authentication service helpers are already present.
 Phase 2 wires student authentication. Phase 3 adds scoped menu management,
@@ -288,7 +288,26 @@ flow that verifies the canteen and order state on the backend.
 
 ## Deployment
 
-- **Frontend** → Vercel (set `VITE_API_URL` to the deployed backend URL)
-- **Backend** → Render (set all env vars in the Render dashboard)
+### Backend on Render
 
-> Deployment guides will be added in Phase 9.
+1. Create a Blueprint from the repository root; Render reads [`render.yaml`](./render.yaml) and provisions a free Node web service. The repository pins Render to Node 22.12 through [`.node-version`](./.node-version).
+2. Provide the requested `MONGODB_URI`, a random `JWT_SECRET` of at least 64 characters, and the final Vercel origin for `CLIENT_ORIGIN`. Configure SMTP values to enable registration and email verification.
+3. Restrict the MongoDB Atlas network access list to the backend host's published outbound addresses where possible; do not use a broad `0.0.0.0/0` rule unless you understand and accept that exposure.
+4. Confirm `https://<render-service>/api/health` returns HTTP 200. The free service may spin down when idle and take time to wake.
+
+### Frontend on Vercel
+
+1. Import the repository and set the project root directory to `frontend`.
+2. Use `npm ci` as the install command, `npm run build` as the build command, and `dist` as the output directory. [`frontend/vercel.json`](./frontend/vercel.json) rewrites client-side routes to the SPA entry point.
+   The frontend package range supports local Node 20.19+ and lets Vercel select its latest supported major (24.x).
+3. Set `VITE_API_URL` to the backend origin, without a trailing slash, then redeploy. This variable is public in the browser bundle; never put secrets in a `VITE_` variable.
+4. Set Render's `CLIENT_ORIGIN` to the exact deployed Vercel origin (including `https://` and any custom domain), then redeploy the backend so CORS and Socket.IO accept that origin.
+
+Before enabling public sign-up, create the university email domain and first
+super-admin using the backend CLI scripts documented above against the intended
+database. Keep production database credentials and generated secrets in the
+hosting provider's environment settings, never in Git.
+
+Razorpay remains optional. If enabled, configure its API keys and webhook secret
+only in the Render environment settings and register the deployed
+`/api/payments/razorpay/webhook` endpoint in Razorpay.
